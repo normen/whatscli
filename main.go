@@ -68,7 +68,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
-	topBar.SetText("[::b] WhatsCLI v0.1.0  [-][::d]Help: /name [Name] = name contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/contacts | <Up/Dn> = scroll history | <PgUp/PgDn> = switch contacts")
+	topBar.SetText("[::b] WhatsCLI v0.2.0  [-][::d]Help: /name [Name] = name contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/contacts | <Up/Dn> = scroll history | <PgUp/PgDn> = switch contacts")
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
