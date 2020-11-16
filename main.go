@@ -15,7 +15,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.4.1"
+var VERSION string = "v0.4.2"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -47,6 +47,7 @@ func main() {
 	gridLayout.SetRows(1, 0, 1)
 	gridLayout.SetColumns(30, 0, 30)
 	gridLayout.SetBorders(true)
+	gridLayout.SetBackgroundColor(tcell.ColorBlack)
 
 	//list := tview.NewList()
 	////list.SetTitle("Contacts")
