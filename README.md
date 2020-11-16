@@ -52,6 +52,7 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 - To display names they have to be entered through the `/name TheName` command for each contact
 - Doesn't support groups properly
 - No support for images, videos, documents etc
+- No incoming message notification / count
 - Not configurable at all
 - Leaves its config files in your home folder
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when they change stuff in their web app
