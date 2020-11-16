@@ -64,7 +64,7 @@ func GetTextMessageString(msg *whatsapp.TextMessage) string {
 	var out = ""
 	tim := time.Unix(int64((*msg).Info.Timestamp), 0)
 	if (*msg).Info.FromMe {
-		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [blue]Ich: " + (*msg).Text
+		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [blue]Me: " + (*msg).Text
 	} else {
 		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName((*msg).Info.RemoteJid) + ": " + (*msg).Text
 	}
