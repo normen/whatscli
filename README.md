@@ -61,7 +61,7 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 
 How to get it running and use it
 
-- Put the binary in your PATH
-- Run with `whatscli`
-- Scan QR code with WhatsApp on phone
+- Put the binary in your PATH (optional)
+- Run with `whatscli` (or double-click)
+- Scan QR code with WhatsApp on phone (maybe resize shell)
 
