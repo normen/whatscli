@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+if [ $# -eq 0 ]; then
+  echo "Usage: ./release.sh v1.0.0"
+  exit 0
+fi
 WINF=whatscli-$1-windows.zip
 LINUXF=whatscli-$1-linux.zip
 MACF=whatscli-$1-macos.zip
