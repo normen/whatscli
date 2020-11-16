@@ -16,6 +16,8 @@ type waMsg struct {
 	Text string
 }
 
+var VERSION string = "v0.3.1"
+
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
 
@@ -68,7 +70,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
-	topBar.SetText("[::b] WhatsCLI v0.3.0  [-::d]Help: /name (NewName) | /addname (number) (NewName) | /quit | <Tab> = contacts/message | <Up/Dn> = scroll")
+	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Help: /name NewName | /addname 123456 NewName | /quit | <Tab> = contacts/message | <Up/Dn> = scroll")
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -78,7 +80,7 @@ func main() {
 			app.Draw()
 		})
 
-	fmt.Fprint(textView, "[::b]WhatsCLI v0.3.0\n\n[-][-::u]Commands:[-::-]\n/name NewName = name current contact\n/addname number NewName = name by number\n/load = reload contacts\n/quit = exit app\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history")
+	fmt.Fprint(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-][-::u]Commands:[-::-]\n/name NewName = name current contact\n/addname number NewName = name by number\n/load = reload contacts\n/quit = exit app\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history")
 
 	//textView.SetBorder(true)
 
