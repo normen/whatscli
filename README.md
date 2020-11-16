@@ -50,6 +50,7 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 - Only lists contacts that have been messaged on phone
 - Only fetches a few messages for last contacted
 - To display names they have to be entered through the `/name TheName` command for each contact
+- Doesn't support groups properly
 - No support for images, videos, documents etc
 - Not configurable at all
 - Leaves its config files in your home folder
