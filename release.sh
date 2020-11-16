@@ -25,9 +25,7 @@ rm whatscli
 git pull
 LASTTAG=$(git describe --tags --abbrev=0)
 git log $LASTTAG..HEAD --no-decorate --pretty=format:"- %s" --abbrev-commit > changes.txt
-echo "------ CHANGES ------"
-cat changes.txt
-echo "------ CHANGES ------"
+vim changes.txt
 gh release create $1 $LINUXF $MACF $WINF $RASPIF -F changes.txt -t $1
 rm changes.txt
 rm *.zip
