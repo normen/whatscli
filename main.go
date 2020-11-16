@@ -49,28 +49,6 @@ func main() {
 	gridLayout.SetBorders(true)
 	gridLayout.SetBackgroundColor(tcell.ColorBlack)
 
-	//list := tview.NewList()
-	////list.SetTitle("Contacts")
-	////list.AddItem("List Contacts", "get the contacts", 'a', func() {
-	////  list.Clear()
-	////  var ids = msgStore.GetContactIds()
-	////  for _, element := range ids {
-	////    //fmt.Fprint(textView, "\n"+element)
-	////    var elem = element
-	////    list.AddItem(messages.GetIdName(element), "", '-', func() {
-	////      currentReceiver = elem
-	////      textView.Clear()
-	////      textView.SetText(msgStore.GetMessagesString(elem))
-	////      fmt.Fprint(textView, "\nNeuer Empfänger: ", elem)
-	////    })
-	////  }
-	////})
-	//list.ShowSecondaryText(false)
-	//list.AddItem("Load", "Load Contacts", 'l', LoadContacts)
-	//list.AddItem("Quit", "Press to exit", 'q', func() {
-	//  app.Stop()
-	//})
-
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Help: /name NewName | /addname 123456 NewName | /quit | <Tab> = contacts/message | <Up/Dn> = scroll")
@@ -139,7 +117,7 @@ func main() {
 	app.SetFocus(textInput)
 	go func() {
 		if err := StartTextReceiver(); err != nil {
-			fmt.Fprint(textView, err)
+			fmt.Fprint(textView, "[red]", err, "[-]")
 		}
 	}()
 	app.Run()
@@ -164,7 +142,7 @@ func EnterCommand(key tcell.Key) {
 		//command
 		parts := strings.Split(sndTxt, " ")
 		if len(parts) < 3 {
-			fmt.Fprint(textView, "\nUse /addname 1234567 NewName")
+			fmt.Fprint(textView, "Use /addname 1234567 NewName\n")
 			return
 		}
 		messages.SetIdName(parts[1]+messages.CONTACTSUFFIX, strings.TrimPrefix(sndTxt, "/addname "+parts[1]+" "))
@@ -174,7 +152,7 @@ func EnterCommand(key tcell.Key) {
 		return
 	}
 	if currentReceiver == "" {
-		fmt.Fprint(textView, "\nNo recipient set")
+		fmt.Fprint(textView, "[red]No recipient set[-]\n")
 		return
 	}
 	if strings.Index(sndTxt, "/name ") == 0 {
@@ -278,7 +256,7 @@ func StartTextReceiver() error {
 			messages.SetIdName(contact.Jid, contact.Name)
 		}
 	}
-	fmt.Fprint(textView, "\n"+"closing the receiver")
+	fmt.Fprint(textView, "closing the receiver\n")
 	wac.Disconnect()
 	return nil
 }
@@ -300,9 +278,9 @@ func SendText(wid string, text string) {
 	msgStore.AddTextMessage(msg)
 	connection.AddHandler(handler)
 	if err != nil {
-		fmt.Fprint(textView, "\nerror sending message: %v", err)
+		fmt.Fprint(textView, "[red]error sending message: ", err, "\n[-]")
 	} else {
-		//fmt.Fprint(textView, "\nSent msg with ID: %v", msgID)
+		//fmt.Fprint(textView, "Sent msg with ID: ", msgID, "\n")
 	}
 }
 
@@ -311,7 +289,7 @@ type textHandler struct{}
 // HandleError implements the handler interface for go-whatsapp
 func (t textHandler) HandleError(err error) {
 	// TODO : handle go routine here
-	fmt.Fprint(textView, "\nerror in textHandler : %v", err)
+	fmt.Fprint(textView, "[red]error in textHandler : ", err, "\n[-]")
 	return
 }
 

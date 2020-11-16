@@ -68,7 +68,6 @@ func LoginWithConnection(wac *whatsapp.Conn) error {
 		return fmt.Errorf("error saving session: %v\n", err)
 	}
 	//<-time.After(3 * time.Second)
-	//fmt.Fprint(textView, "\nlogin successful")
 	return nil
 }
 
