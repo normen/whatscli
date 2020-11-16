@@ -71,14 +71,14 @@ func GetTextMessageString(msg *whatsapp.TextMessage) string {
 	text := tview.Escape((*msg).Text)
 	tim := time.Unix(int64((*msg).Info.Timestamp), 0)
 	if (*msg).Info.FromMe { //msg from me
-		out += "\n[-::d](" + tim.Format("01-02-06 15:04:05") + ") [blue::b]Me: [-::-]" + text
+		out += "\n[-::d](" + tim.Format("02-01-06 15:04:05") + ") [blue::b]Me: [-::-]" + text
 	} else if strings.Contains((*msg).Info.RemoteJid, GROUPSUFFIX) { // group msg
 		//(*msg).Info.SenderJid
 		userId := (*msg).Info.SenderJid
 		//userId := strings.Split(string((*msg).Info.RemoteJid), "-")[0] + CONTACTSUFFIX
-		out += "\n[-::d](" + tim.Format("01-02-06 15:04:05") + ") [green::b]" + GetIdName(userId) + ": [-::-]" + text
+		out += "\n[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdName(userId) + ": [-::-]" + text
 	} else { // message from others
-		out += "\n[-::d](" + tim.Format("01-02-06 15:04:05") + ") [green::b]" + GetIdName((*msg).Info.RemoteJid) + ": [-::-]" + text
+		out += "\n[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdName((*msg).Info.RemoteJid) + ": [-::-]" + text
 	}
 	return out
 }
