@@ -15,7 +15,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.4.2"
+var VERSION string = "v0.4.4"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -36,8 +36,6 @@ var contactRoot *tview.TreeNode
 var handler textHandler
 var app *tview.Application
 
-//var messages map[string]string
-
 func main() {
 	msgStore = messages.MessageDatabase{}
 	msgStore.Init()
@@ -51,7 +49,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
-	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Help: /name NewName | /addname 123456 NewName | /quit | <Tab> = contacts/message | <Up/Dn> = scroll")
+	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type /help for help")
 
 	//infoBar = tview.NewTextView()
 	//infoBar.SetDynamicColors(true)
@@ -65,7 +63,7 @@ func main() {
 			app.Draw()
 		})
 
-	fmt.Fprint(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-][-::u]Commands:[-::-]\n/name NewName = name current contact\n/addname number NewName = name by number\n/load = reload contacts\n/quit = exit app\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history")
+	PrintHelp()
 
 	//textView.SetBorder(true)
 
@@ -123,6 +121,10 @@ func main() {
 	app.Run()
 }
 
+func PrintHelp() {
+	fmt.Fprint(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-][-::u]Commands:[-::-]\n/name NewName = name selected contact\n/addname 1234567 NewName = add name for number\n/load = reload contacts\n/quit = exit app\n/help = show this help\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history\n\n")
+}
+
 func EnterCommand(key tcell.Key) {
 	if sndTxt == "" {
 		return
@@ -130,6 +132,12 @@ func EnterCommand(key tcell.Key) {
 	if sndTxt == "/load" {
 		//command
 		LoadContacts()
+		textInput.SetText("")
+		return
+	}
+	if sndTxt == "/help" {
+		//command
+		PrintHelp()
 		textInput.SetText("")
 		return
 	}
@@ -152,7 +160,7 @@ func EnterCommand(key tcell.Key) {
 		return
 	}
 	if currentReceiver == "" {
-		fmt.Fprint(textView, "[red]No recipient set[-]\n")
+		fmt.Fprint(textView, "[red]no contact selected[-]\n")
 		return
 	}
 	if strings.Index(sndTxt, "/name ") == 0 {
