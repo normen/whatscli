@@ -3,8 +3,12 @@ package messages
 import (
 	"github.com/Rhymen/go-whatsapp"
 	"sort"
+	"strings"
 	"time"
 )
+
+const GROUPSUFFIX = "@g.us"
+const CONTACTSUFFIX = "@s.whatsapp.net"
 
 type MessageDatabase struct {
 	textMessages  map[string][]whatsapp.TextMessage
@@ -63,9 +67,14 @@ func (db *MessageDatabase) GetMessagesString(wid string) string {
 func GetTextMessageString(msg *whatsapp.TextMessage) string {
 	var out = ""
 	tim := time.Unix(int64((*msg).Info.Timestamp), 0)
-	if (*msg).Info.FromMe {
+	if (*msg).Info.FromMe { //msg from me
 		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [blue]Me: " + (*msg).Text
-	} else {
+	} else if strings.Contains((*msg).Info.RemoteJid, GROUPSUFFIX) { // group msg
+		//(*msg).Info.SenderJid
+		userId := (*msg).Info.SenderJid
+		//userId := strings.Split(string((*msg).Info.RemoteJid), "-")[0] + CONTACTSUFFIX
+		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName(userId) + ": " + (*msg).Text
+	} else { // message from others
 		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName((*msg).Info.RemoteJid) + ": " + (*msg).Text
 	}
 	return out

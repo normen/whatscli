@@ -16,8 +16,6 @@ type waMsg struct {
 	Text string
 }
 
-const CONTACTSUFFIX = "@s.whatsapp.net"
-
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
 
@@ -40,8 +38,6 @@ func main() {
 	msgStore = messages.MessageDatabase{}
 	msgStore.Init()
 	messages.LoadContacts()
-	//messages.SetIdName("491732457387"+CONTACTSUFFIX, "Normen")
-	//messages.SetIdName("4917622723621"+CONTACTSUFFIX, "Lilou")
 	app = tview.NewApplication()
 	gridLayout := tview.NewGrid()
 	gridLayout.SetRows(1, 0, 1)
@@ -72,7 +68,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
-	topBar.SetText("[::b] WhatsCLI v0.1.0  [-][::d]Help: /name [Name] = name contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/tree | <Pgup/dn> = scroll history")
+	topBar.SetText("[::b] WhatsCLI v0.1.0  [-][::d]Help: /name [Name] = name contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/contacts | <Up/Dn> = scroll history | <PgUp/PgDn> = switch contacts")
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -92,6 +88,18 @@ func main() {
 	textInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyTab {
 			app.SetFocus(treeView)
+			return nil
+		}
+		if event.Key() == tcell.KeyDown {
+			offset, _ := textView.GetScrollOffset()
+			offset += 1
+			textView.ScrollTo(offset, 0)
+			return nil
+		}
+		if event.Key() == tcell.KeyUp {
+			offset, _ := textView.GetScrollOffset()
+			offset -= 1
+			textView.ScrollTo(offset, 0)
 			return nil
 		}
 		if event.Key() == tcell.KeyPgDn {
@@ -164,7 +172,7 @@ func EnterCommand(key tcell.Key) {
 func MakeTree() *tview.TreeView {
 	rootDir := "Contacts"
 	contactRoot = tview.NewTreeNode(rootDir).
-		SetColor(tcell.ColorRed)
+		SetColor(tcell.ColorYellow)
 	treeView = tview.NewTreeView().
 		SetRoot(contactRoot).
 		SetCurrentNode(contactRoot)
@@ -202,7 +210,7 @@ func LoadContacts() {
 		node := tview.NewTreeNode(messages.GetIdName(element)).
 			SetReference(element).
 			SetSelectable(true)
-		if strings.Count(element, CONTACTSUFFIX) > 0 {
+		if strings.Count(element, messages.CONTACTSUFFIX) > 0 {
 			node.SetColor(tcell.ColorGreen)
 		} else {
 			node.SetColor(tcell.ColorBlue)

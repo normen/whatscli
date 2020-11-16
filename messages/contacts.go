@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"os"
 	"os/user"
+	"strings"
 )
 
 var contacts map[string]string
@@ -45,7 +46,7 @@ func GetIdName(id string) string {
 	if _, ok := contacts[id]; ok {
 		return contacts[id]
 	}
-	return id
+	return strings.TrimSuffix(id, CONTACTSUFFIX)
 }
 
 func GetHomeDir() string {
