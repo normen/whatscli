@@ -45,11 +45,12 @@ Things that work.
 
 ### Caveats
 
-Heres some things you might expect to work that don't plus some other things I should mention
+This is a WIP. Heres some things you might expect to work that don't. Plus some other things I should mention.
 
 - Only lists contacts that have been messaged on phone
 - Only fetches a few messages for last contacted
 - To display names they have to be entered through the `/name TheName` command for each contact
+- No support for images, videos, documents etc
 - Not configurable at all
 - Leaves its config files in your home folder
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when they change stuff in their web app
