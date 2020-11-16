@@ -10,13 +10,12 @@ import (
 	"time"
 )
 
-type textHandler struct{}
 type waMsg struct {
 	Wid  string
 	Text string
 }
 
-var VERSION string = "v0.3.1"
+var VERSION string = "v0.4.0"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -246,27 +245,6 @@ func SetDisplayedContact(wid string) {
 	textView.SetText(msgStore.GetMessagesString(wid))
 }
 
-// HandleError implements the handler interface for go-whatsapp
-func (t textHandler) HandleError(err error) {
-	// TODO : handle go routine here
-	fmt.Fprint(textView, "\nerror in textHandler : %v", err)
-	return
-}
-
-// HandleTextMessage implements the text message handler interface for go-whatsapp
-func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
-	textChannel <- msg
-	if msg.Info.RemoteJid != currentReceiver {
-		//fmt.Print("\a")
-		return
-	}
-	PrintTextMessage(msg)
-}
-
-func PrintTextMessage(msg whatsapp.TextMessage) {
-	fmt.Fprint(textView, messages.GetTextMessageString(&msg))
-}
-
 // StartTextReceiver starts the handler for the text messages received
 func StartTextReceiver() error {
 	var wac = GetConnection()
@@ -314,4 +292,79 @@ func SendText(wid string, text string) {
 	} else {
 		//fmt.Fprint(textView, "\nSent msg with ID: %v", msgID)
 	}
+}
+
+type textHandler struct{}
+
+// HandleError implements the handler interface for go-whatsapp
+func (t textHandler) HandleError(err error) {
+	// TODO : handle go routine here
+	fmt.Fprint(textView, "\nerror in textHandler : %v", err)
+	return
+}
+
+// HandleTextMessage implements the text message handler interface for go-whatsapp
+func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
+	textChannel <- msg
+	if msg.Info.RemoteJid != currentReceiver {
+		//fmt.Print("\a")
+		return
+	}
+	PrintTextMessage(msg)
+}
+
+func PrintTextMessage(msg whatsapp.TextMessage) {
+	fmt.Fprint(textView, messages.GetTextMessageString(&msg))
+}
+
+func (t textHandler) HandleImageMessage(message whatsapp.ImageMessage) {
+	msg := whatsapp.TextMessage{
+		Info: whatsapp.MessageInfo{
+			RemoteJid: message.Info.RemoteJid,
+			SenderJid: message.Info.SenderJid,
+			FromMe:    message.Info.FromMe,
+			Timestamp: message.Info.Timestamp,
+		},
+		Text: "[IMAGE] " + message.Caption,
+	}
+	t.HandleTextMessage(msg)
+}
+
+func (t textHandler) HandleDocumentMessage(message whatsapp.DocumentMessage) {
+	msg := whatsapp.TextMessage{
+		Info: whatsapp.MessageInfo{
+			RemoteJid: message.Info.RemoteJid,
+			SenderJid: message.Info.SenderJid,
+			FromMe:    message.Info.FromMe,
+			Timestamp: message.Info.Timestamp,
+		},
+		Text: "[DOCUMENT] " + message.Title,
+	}
+	t.HandleTextMessage(msg)
+}
+
+func (t textHandler) HandleVideoMessage(message whatsapp.VideoMessage) {
+	msg := whatsapp.TextMessage{
+		Info: whatsapp.MessageInfo{
+			RemoteJid: message.Info.RemoteJid,
+			SenderJid: message.Info.SenderJid,
+			FromMe:    message.Info.FromMe,
+			Timestamp: message.Info.Timestamp,
+		},
+		Text: "[VIDEO] " + message.Caption,
+	}
+	t.HandleTextMessage(msg)
+}
+
+func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
+	msg := whatsapp.TextMessage{
+		Info: whatsapp.MessageInfo{
+			RemoteJid: message.Info.RemoteJid,
+			SenderJid: message.Info.SenderJid,
+			FromMe:    message.Info.FromMe,
+			Timestamp: message.Info.Timestamp,
+		},
+		Text: "[AUDIO]",
+	}
+	t.HandleTextMessage(msg)
 }
