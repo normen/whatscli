@@ -68,7 +68,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
-	topBar.SetText("[::b] WhatsCLI v0.2.0  [-][::d]Help: /name [Name] = name contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/contacts | <Up/Dn> = scroll history | <PgUp/PgDn> = switch contacts")
+	topBar.SetText("[::b] WhatsCLI v0.2.1  [-][::d]Help: /name NewName = name current contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/contacts | <Up/Dn> = scroll history")
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -216,6 +216,9 @@ func LoadContacts() {
 			node.SetColor(tcell.ColorBlue)
 		}
 		contactRoot.AddChild(node)
+		if element == currentReceiver {
+			treeView.SetCurrentNode(node)
+		}
 	}
 }
 

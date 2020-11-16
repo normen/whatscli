@@ -2,6 +2,7 @@ package messages
 
 import (
 	"github.com/Rhymen/go-whatsapp"
+	"github.com/rivo/tview"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ func (db *MessageDatabase) AddTextMessage(msg whatsapp.TextMessage) bool {
 		didNew = true
 	} else if (*db).latestMessage[wid] < msg.Info.Timestamp {
 		(*db).latestMessage[wid] = msg.Info.Timestamp
+		didNew = true
 	}
 	(*db).textMessages[wid] = append((*db).textMessages[wid], msg)
 	sort.Slice((*db).textMessages[wid], func(i, j int) bool {
@@ -65,17 +67,18 @@ func (db *MessageDatabase) GetMessagesString(wid string) string {
 }
 
 func GetTextMessageString(msg *whatsapp.TextMessage) string {
-	var out = ""
+	out := ""
+	text := tview.Escape((*msg).Text)
 	tim := time.Unix(int64((*msg).Info.Timestamp), 0)
 	if (*msg).Info.FromMe { //msg from me
-		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [blue]Me: " + (*msg).Text
+		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [blue]Me: " + text
 	} else if strings.Contains((*msg).Info.RemoteJid, GROUPSUFFIX) { // group msg
 		//(*msg).Info.SenderJid
 		userId := (*msg).Info.SenderJid
 		//userId := strings.Split(string((*msg).Info.RemoteJid), "-")[0] + CONTACTSUFFIX
-		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName(userId) + ": " + (*msg).Text
+		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName(userId) + ": " + text
 	} else { // message from others
-		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName((*msg).Info.RemoteJid) + ": " + (*msg).Text
+		out += "\n[-](" + tim.Format("01-02-06 15:04:05") + ") [green]" + GetIdName((*msg).Info.RemoteJid) + ": " + text
 	}
 	return out
 }
