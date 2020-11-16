@@ -19,6 +19,7 @@ var VERSION string = "v0.4.0"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
+var contactChannel chan whatsapp.Contact
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -26,6 +27,8 @@ var textView *tview.TextView
 var treeView *tview.TreeView
 var textInput *tview.InputField
 var topBar *tview.TextView
+
+//var infoBar *tview.TextView
 var connection *whatsapp.Conn
 var msgStore messages.MessageDatabase
 
@@ -70,6 +73,10 @@ func main() {
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Help: /name NewName | /addname 123456 NewName | /quit | <Tab> = contacts/message | <Up/Dn> = scroll")
+
+	//infoBar = tview.NewTextView()
+	//infoBar.SetDynamicColors(true)
+	//infoBar.SetText("🔋: ??%")
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -121,6 +128,7 @@ func main() {
 	})
 
 	gridLayout.AddItem(topBar, 0, 0, 1, 4, 0, 0, false)
+	//gridLayout.AddItem(infoBar, 0, 0, 1, 1, 0, 0, false)
 	gridLayout.AddItem(MakeTree(), 1, 0, 2, 1, 0, 0, false)
 	gridLayout.AddItem(textView, 1, 1, 1, 3, 0, 0, false)
 	gridLayout.AddItem(textInput, 2, 1, 1, 3, 0, 0, false)
@@ -256,6 +264,7 @@ func StartTextReceiver() error {
 	wac.AddHandler(handler)
 	sendChannel = make(chan waMsg)
 	textChannel = make(chan whatsapp.TextMessage)
+	contactChannel = make(chan whatsapp.Contact)
 	for {
 		select {
 		case msg := <-sendChannel:
@@ -264,6 +273,8 @@ func StartTextReceiver() error {
 			if msgStore.AddTextMessage(rcvd) {
 				app.QueueUpdateDraw(LoadContacts)
 			}
+		case contact := <-contactChannel:
+			messages.SetIdName(contact.Jid, contact.Name)
 		}
 	}
 	fmt.Fprint(textView, "\n"+"closing the receiver")
@@ -368,3 +379,13 @@ func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 	}
 	t.HandleTextMessage(msg)
 }
+
+func (t textHandler) HandleNewContact(contact whatsapp.Contact) {
+	contactChannel <- contact
+}
+
+//func (t textHandler) HandleBatteryMessage(msg whatsapp.BatteryMessage) {
+//  app.QueueUpdate(func() {
+//    infoBar.SetText("🔋: " + string(msg.Percentage) + "%")
+//  })
+//}
