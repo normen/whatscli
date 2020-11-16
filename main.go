@@ -68,7 +68,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
-	topBar.SetText("[::b] WhatsCLI v0.2.1  [-][::d]Help: /name NewName = name current contact | /quit = exit app | /load = reload contacts | <Tab> = switch input/contacts | <Up/Dn> = scroll history")
+	topBar.SetText("[::b] WhatsCLI v0.3.0  [-::d]Help: /name (NewName) | /addname (number) (NewName) | /quit | <Tab> = contacts/message | <Up/Dn> = scroll")
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -77,6 +77,8 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
+
+	fmt.Fprint(textView, "[::b]WhatsCLI v0.3.0\n\n[-][-::u]Commands:[-::-]\n/name NewName = name current contact\n/addname number NewName = name by number\n/load = reload contacts\n/quit = exit app\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history")
 
 	//textView.SetBorder(true)
 
@@ -146,6 +148,19 @@ func EnterCommand(key tcell.Key) {
 	if sndTxt == "/quit" {
 		//command
 		app.Stop()
+		return
+	}
+	if strings.Index(sndTxt, "/addname ") == 0 {
+		//command
+		parts := strings.Split(sndTxt, " ")
+		if len(parts) < 3 {
+			fmt.Fprint(textView, "\nUse /addname 1234567 NewName")
+			return
+		}
+		messages.SetIdName(parts[1]+messages.CONTACTSUFFIX, strings.TrimPrefix(sndTxt, "/addname "+parts[1]+" "))
+		SetDisplayedContact(currentReceiver)
+		LoadContacts()
+		textInput.SetText("")
 		return
 	}
 	if currentReceiver == "" {
@@ -240,6 +255,7 @@ func (t textHandler) HandleError(err error) {
 func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
 	textChannel <- msg
 	if msg.Info.RemoteJid != currentReceiver {
+		//fmt.Print("\a")
 		return
 	}
 	PrintTextMessage(msg)

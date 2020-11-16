@@ -47,10 +47,9 @@ Things that work.
 
 This is a WIP. Heres some things you might expect to work that don't. Plus some other things I should mention.
 
-- Only lists contacts that have been messaged on phone
+- Only lists contacts and groups that have been messaged on phone
 - Only fetches a few messages for last contacted
-- To display names they have to be entered through the `/name TheName` command for each contact
-- Doesn't support naming people in groups
+- To display names they have to be entered through the `/name` or `/addname` commands for each contact
 - No support for images, videos, documents etc
 - No incoming message notification / count
 - Not configurable at all
