@@ -307,11 +307,8 @@ func SendText(wid string, text string) {
 	}
 
 	PrintTextMessage(msg)
-	//TODO: workaround for error when receiving&sending
-	connection.RemoveHandlers()
 	_, err := connection.Send(msg)
 	msgStore.AddTextMessage(msg)
-	connection.AddHandler(handler)
 	if err != nil {
 		fmt.Fprintln(textView, "[red]error sending message: ", err, "[-]")
 	} else {

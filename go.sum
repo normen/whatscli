@@ -7,10 +7,14 @@ github.com/Rhymen/go-whatsapp v0.1.0 h1:XTXhFIQ/fx9jKObUnUX2Q+nh58EyeHNhX7DniE8x
 github.com/Rhymen/go-whatsapp v0.1.0/go.mod h1:xJSy+okeRjKkQEH/lEYrnekXB3PG33fqL0I6ncAkV50=
 github.com/Rhymen/go-whatsapp v0.1.1-0.20201007125822-005103751b7a h1:LW+rX0NY6LzMPa2hJcgmQlfiFJUihzOMAaIoCq+P3xc=
 github.com/Rhymen/go-whatsapp v0.1.1-0.20201007125822-005103751b7a/go.mod h1:o7jjkvKnigfu432dMbQ/w4PH0Yp5u4Y6ysCNjUlcYCk=
+github.com/Rhymen/go-whatsapp v0.1.1-0.20201117204225-79ad714fa46a h1:IhYU0cQ0cvMO9MOuOO08X8zUtMQ+AVIV0D+7eZVtHe8=
+github.com/Rhymen/go-whatsapp v0.1.1-0.20201117204225-79ad714fa46a/go.mod h1:o7jjkvKnigfu432dMbQ/w4PH0Yp5u4Y6ysCNjUlcYCk=
 github.com/Rhymen/go-whatsapp/examples/echo v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:zgCiQtBtZ4P4gFWvwl9aashsdwOcbb/EHOGRmSzM8ME=
 github.com/Rhymen/go-whatsapp/examples/restoreSession v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:5sCUSpG616ZoSJhlt9iBNI/KXBqrVLcNUJqg7J9+8pU=
 github.com/Rhymen/go-whatsapp/examples/sendImage v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:RdiyhanVEGXTam+mZ3k6Y3VDCCvXYCwReOoxGozqhHw=
 github.com/Rhymen/go-whatsapp/examples/sendTextMessages v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:suwzklatySS3Q0+NCxCDh5hYfgXdQUWU1DNcxwAxStM=
+github.com/SchulteMK/go-whatsapp v0.0.0-20201117193111-50e7347bfbb6 h1:Rsit49rPlurIGzQn9VGOPph0pNjUX+bo+9Lg51D8rn0=
+github.com/SchulteMK/go-whatsapp v0.0.0-20201117193111-50e7347bfbb6/go.mod h1:o7jjkvKnigfu432dMbQ/w4PH0Yp5u4Y6ysCNjUlcYCk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
