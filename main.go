@@ -73,6 +73,10 @@ func main() {
 	})
 	textInput.SetDoneFunc(EnterCommand)
 	textInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlE {
+			app.SetFocus(treeView)
+			return nil
+		}
 		if event.Key() == tcell.KeyTab {
 			app.SetFocus(treeView)
 			return nil
@@ -218,6 +222,10 @@ func MakeTree() *tview.TreeView {
 	})
 	treeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyTab {
+			app.SetFocus(textInput)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlSpace {
 			app.SetFocus(textInput)
 			return nil
 		}
