@@ -128,15 +128,15 @@ func main() {
 // prints help to chat view
 func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-]")
-  fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
-  fmt.Fprintln(textView, "/name NewName = name selected contact")
-  fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
-  fmt.Fprintln(textView, "/load = reload contacts")
-  fmt.Fprintln(textView, "/quit = exit app")
-  fmt.Fprintln(textView, "/help = show this help\n")
-  fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
-  fmt.Fprintln(textView, "<Tab> = switch input/contacts")
-  fmt.Fprintln(textView, "<Up/Dn> = scroll history\n")
+	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
+	fmt.Fprintln(textView, "/name NewName = name selected contact")
+	fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
+	fmt.Fprintln(textView, "/load = reload contacts")
+	fmt.Fprintln(textView, "/quit = exit app")
+	fmt.Fprintln(textView, "/help = show this help\n")
+	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
+	fmt.Fprintln(textView, "<Tab> = switch input/contacts")
+	fmt.Fprintln(textView, "<Up/Dn> = scroll history\n")
 }
 
 // called when text is entered by the user
