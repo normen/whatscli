@@ -121,10 +121,12 @@ func main() {
 	app.Run()
 }
 
+// prints help to chat view
 func PrintHelp() {
 	fmt.Fprint(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-][-::u]Commands:[-::-]\n/name NewName = name selected contact\n/addname 1234567 NewName = add name for number\n/load = reload contacts\n/quit = exit app\n/help = show this help\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history\n\n")
 }
 
+// called when text is entered by the user
 func EnterCommand(key tcell.Key) {
 	if sndTxt == "" {
 		return
@@ -180,6 +182,7 @@ func EnterCommand(key tcell.Key) {
 	textInput.SetText("")
 }
 
+// creates the TreeView for contacts
 func MakeTree() *tview.TreeView {
 	rootDir := "Contacts"
 	contactRoot = tview.NewTreeNode(rootDir).
@@ -214,6 +217,7 @@ func MakeTree() *tview.TreeView {
 	return treeView
 }
 
+// loads the contact data from storage to the TreeView
 func LoadContacts() {
 	var ids = msgStore.GetContactIds()
 	contactRoot.ClearChildren()
@@ -233,6 +237,7 @@ func LoadContacts() {
 	}
 }
 
+// sets the current contact, loads text from storage to TextView
 func SetDisplayedContact(wid string) {
 	currentReceiver = wid
 	textView.Clear()
@@ -240,7 +245,7 @@ func SetDisplayedContact(wid string) {
 	textView.SetText(msgStore.GetMessagesString(wid))
 }
 
-// StartTextReceiver starts the handler for the text messages received
+// starts the receiver and message handling thread
 func StartTextReceiver() error {
 	var wac = GetConnection()
 	err := LoginWithConnection(wac)
@@ -269,6 +274,7 @@ func StartTextReceiver() error {
 	return nil
 }
 
+// sends text to whatsapp id
 func SendText(wid string, text string) {
 	msg := whatsapp.TextMessage{
 		Info: whatsapp.MessageInfo{
@@ -292,9 +298,10 @@ func SendText(wid string, text string) {
 	}
 }
 
+// handler struct for whatsapp callbacks
 type textHandler struct{}
 
-// HandleError implements the handler interface for go-whatsapp
+// HandleError implements the error handler interface for go-whatsapp
 func (t textHandler) HandleError(err error) {
 	// TODO : handle go routine here
 	fmt.Fprint(textView, "[red]error in textHandler : ", err, "\n[-]")
@@ -311,10 +318,12 @@ func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
 	PrintTextMessage(msg)
 }
 
+// prints a text message to the TextView
 func PrintTextMessage(msg whatsapp.TextMessage) {
 	fmt.Fprint(textView, messages.GetTextMessageString(&msg))
 }
 
+// methods to convert messages to TextMessage
 func (t textHandler) HandleImageMessage(message whatsapp.ImageMessage) {
 	msg := whatsapp.TextMessage{
 		Info: whatsapp.MessageInfo{
@@ -367,6 +376,7 @@ func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 	t.HandleTextMessage(msg)
 }
 
+// add contact info to database TODO: when are these sent??
 func (t textHandler) HandleNewContact(contact whatsapp.Contact) {
 	contactChannel <- contact
 }
