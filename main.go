@@ -144,6 +144,10 @@ func EnterCommand(key tcell.Key) {
 	if sndTxt == "" {
 		return
 	}
+  if key == tcell.KeyEsc {
+    textInput.SetText("")
+    return;
+  }
 	if sndTxt == "/load" {
 		//command
 		LoadContacts()
