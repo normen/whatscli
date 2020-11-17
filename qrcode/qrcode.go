@@ -96,7 +96,7 @@ var (
 type QRCodeString string
 
 func (v *QRCodeString) Print() {
-	fmt.Fprint(outer, *v)
+	fmt.Fprintln(outer, *v)
 }
 
 type qrcodeTerminal struct {

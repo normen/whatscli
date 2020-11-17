@@ -115,7 +115,7 @@ func main() {
 	app.SetFocus(textInput)
 	go func() {
 		if err := StartTextReceiver(); err != nil {
-			fmt.Fprint(textView, "[red]", err, "[-]")
+			fmt.Fprintln(textView, "[red]", err, "[-]")
 		}
 	}()
 	app.Run()
@@ -123,7 +123,16 @@ func main() {
 
 // prints help to chat view
 func PrintHelp() {
-	fmt.Fprint(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-][-::u]Commands:[-::-]\n/name NewName = name selected contact\n/addname 1234567 NewName = add name for number\n/load = reload contacts\n/quit = exit app\n/help = show this help\n\n[-::u]Keys:[-::-]\n<Tab> = switch input/contacts\n<Up/Dn> = scroll history\n\n")
+	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-]")
+  fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
+  fmt.Fprintln(textView, "/name NewName = name selected contact")
+  fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
+  fmt.Fprintln(textView, "/load = reload contacts")
+  fmt.Fprintln(textView, "/quit = exit app")
+  fmt.Fprintln(textView, "/help = show this help\n")
+  fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
+  fmt.Fprintln(textView, "<Tab> = switch input/contacts")
+  fmt.Fprintln(textView, "<Up/Dn> = scroll history\n")
 }
 
 // called when text is entered by the user
@@ -152,7 +161,7 @@ func EnterCommand(key tcell.Key) {
 		//command
 		parts := strings.Split(sndTxt, " ")
 		if len(parts) < 3 {
-			fmt.Fprint(textView, "Use /addname 1234567 NewName\n")
+			fmt.Fprintln(textView, "Use /addname 1234567 NewName")
 			return
 		}
 		messages.SetIdName(parts[1]+messages.CONTACTSUFFIX, strings.TrimPrefix(sndTxt, "/addname "+parts[1]+" "))
@@ -162,7 +171,7 @@ func EnterCommand(key tcell.Key) {
 		return
 	}
 	if currentReceiver == "" {
-		fmt.Fprint(textView, "[red]no contact selected[-]\n")
+		fmt.Fprintln(textView, "[red]no contact selected[-]")
 		return
 	}
 	if strings.Index(sndTxt, "/name ") == 0 {
@@ -269,7 +278,7 @@ func StartTextReceiver() error {
 			messages.SetIdName(contact.Jid, contact.Name)
 		}
 	}
-	fmt.Fprint(textView, "closing the receiver\n")
+	fmt.Fprintln(textView, "closing the receiver")
 	wac.Disconnect()
 	return nil
 }
@@ -292,7 +301,7 @@ func SendText(wid string, text string) {
 	msgStore.AddTextMessage(msg)
 	connection.AddHandler(handler)
 	if err != nil {
-		fmt.Fprint(textView, "[red]error sending message: ", err, "\n[-]")
+		fmt.Fprintln(textView, "[red]error sending message: ", err, "[-]")
 	} else {
 		//fmt.Fprint(textView, "Sent msg with ID: ", msgID, "\n")
 	}
@@ -304,7 +313,7 @@ type textHandler struct{}
 // HandleError implements the error handler interface for go-whatsapp
 func (t textHandler) HandleError(err error) {
 	// TODO : handle go routine here
-	fmt.Fprint(textView, "[red]error in textHandler : ", err, "\n[-]")
+	fmt.Fprintln(textView, "[red]error in textHandler : ", err, "[-]")
 	return
 }
 
@@ -320,7 +329,7 @@ func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
 
 // prints a text message to the TextView
 func PrintTextMessage(msg whatsapp.TextMessage) {
-	fmt.Fprint(textView, messages.GetTextMessageString(&msg))
+	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
 }
 
 // methods to convert messages to TextMessage
