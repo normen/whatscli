@@ -97,6 +97,8 @@ func main() {
 		return event
 	})
 
+	// TODO: add better way
+	messages.SetTextView(textView)
 	PrintHelp()
 
 	//textView.SetBorder(true)
@@ -188,7 +190,7 @@ func EnterCommand(key tcell.Key) {
 	}
 	if sndTxt == "/connect" {
 		//command
-		GetConnection()
+		messages.GetConnection()
 		textInput.SetText("")
 		return
 	}
@@ -318,8 +320,8 @@ func SetDisplayedContact(wid string) {
 
 // starts the receiver and message handling thread
 func StartTextReceiver() error {
-	var wac = GetConnection()
-	err := LoginWithConnection(wac)
+	var wac = messages.GetConnection()
+	err := messages.LoginWithConnection(wac)
 	if err != nil {
 		return fmt.Errorf("%v\n", err)
 	}
@@ -360,7 +362,7 @@ func SendText(wid string, text string) {
 		Text: text,
 	}
 
-	_, err := GetConnection().Send(msg)
+	_, err := messages.GetConnection().Send(msg)
 	if err != nil {
 		fmt.Fprintln(textView, "[red]error sending message: ", err, "[-]")
 	} else {

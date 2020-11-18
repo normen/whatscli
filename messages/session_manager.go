@@ -1,19 +1,22 @@
-package main
+package messages
 
 import (
 	"encoding/gob"
 	"fmt"
 	"github.com/rivo/tview"
 	"os"
-	"os/user"
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
-	"github.com/normen/whatscli/messages"
 	"github.com/normen/whatscli/qrcode"
 )
 
-var connection *whatsapp.Conn
+// TODO: remove this circular dependeny in favor of a better way
+var textView *tview.TextView
+
+func SetTextView(tv *tview.TextView) {
+	textView = tv
+}
 
 func GetConnection() *whatsapp.Conn {
 	var wac *whatsapp.Conn
@@ -28,7 +31,6 @@ func GetConnection() *whatsapp.Conn {
 	} else {
 		wac = connection
 	}
-	messages.SetConnection(wac)
 	return wac
 }
 
@@ -78,13 +80,6 @@ func LoginWithConnection(wac *whatsapp.Conn) error {
 // Logout logs out the user.
 func Logout() error {
 	return removeSession()
-}
-
-func GetHomeDir() string {
-	usr, err := user.Current()
-	if err != nil {
-	}
-	return usr.HomeDir + string(os.PathSeparator)
 }
 
 func readSession() (whatsapp.Session, error) {

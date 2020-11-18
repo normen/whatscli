@@ -12,10 +12,6 @@ import (
 var contacts map[string]string
 var connection *whatsapp.Conn
 
-func SetConnection(conn *whatsapp.Conn) {
-	connection = conn
-}
-
 func LoadContacts() {
 	contacts = make(map[string]string)
 	file, err := os.Open(GetHomeDir() + ".whatscli.contacts")
