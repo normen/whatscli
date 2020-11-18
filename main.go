@@ -67,18 +67,56 @@ func main() {
 		})
 
 	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlE {
+			app.SetFocus(treeView)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlSpace {
+			app.SetFocus(textInput)
+			return nil
+		}
 		if event.Key() == tcell.KeyTab {
 			app.SetFocus(textInput)
 			return event
 		}
-		if curRegions == nil {
+		if curRegions == nil || len(curRegions) == 0 {
 			return event
 		}
 		if event.Key() == tcell.KeyDown || event.Rune() == 'j' {
-			return event
+			hls := textView.GetHighlights()
+			if len(hls) > 0 {
+				newId := GetOffsetMsgId(hls[0], 1)
+				if newId != "" {
+					textView.Highlight(newId)
+				}
+			} else {
+				textView.Highlight(curRegions[0])
+			}
+			textView.ScrollToHighlight()
+			return nil
 		}
 		if event.Key() == tcell.KeyUp || event.Rune() == 'k' {
-			return event
+			hls := textView.GetHighlights()
+			if len(hls) > 0 {
+				newId := GetOffsetMsgId(hls[0], -1)
+				if newId != "" {
+					textView.Highlight(newId)
+				}
+			} else {
+				textView.Highlight(curRegions[len(curRegions)-1])
+			}
+			textView.ScrollToHighlight()
+			return nil
+		}
+		if event.Rune() == 'G' {
+			textView.Highlight(curRegions[len(curRegions)-1])
+			textView.ScrollToHighlight()
+			return nil
+		}
+		if event.Rune() == 'g' {
+			textView.Highlight(curRegions[0])
+			textView.ScrollToHighlight()
+			return nil
 		}
 		if event.Rune() == 'd' {
 			hls := textView.GetHighlights()
@@ -111,6 +149,10 @@ func main() {
 	textInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlE {
 			app.SetFocus(treeView)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlW {
+			app.SetFocus(textView)
 			return nil
 		}
 		if event.Key() == tcell.KeyTab {
@@ -161,9 +203,60 @@ func main() {
 	app.Run()
 }
 
+// creates the TreeView for contacts
+func MakeTree() *tview.TreeView {
+	rootDir := "Contacts"
+	contactRoot = tview.NewTreeNode(rootDir).
+		SetColor(tcell.ColorYellow)
+	treeView = tview.NewTreeView().
+		SetRoot(contactRoot).
+		SetCurrentNode(contactRoot)
+
+	// If a contact was selected, open it.
+	treeView.SetChangedFunc(func(node *tview.TreeNode) {
+		reference := node.GetReference()
+		if reference == nil {
+			return // Selecting the root node does nothing.
+		}
+		children := node.GetChildren()
+		if len(children) == 0 {
+			// Load and show files in this directory.
+			recv := reference.(string)
+			SetDisplayedContact(recv)
+		} else {
+			// Collapse if visible, expand if collapsed.
+			node.SetExpanded(!node.IsExpanded())
+		}
+	})
+	treeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(textInput)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlSpace {
+			app.SetFocus(textInput)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlW {
+			app.SetFocus(textView)
+			return nil
+		}
+		return event
+	})
+	return treeView
+}
+
 // prints help to chat view
 func PrintHelp() {
-	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"\n\n[-]")
+	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"[-]\n")
+	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
+	fmt.Fprintln(textView, "<Tab> = switch input/contacts")
+	fmt.Fprintln(textView, "<Up/Dn> = scroll history")
+	fmt.Fprintln(textView, "<Ctrl-W> = focus chat window\n")
+	fmt.Fprintln(textView, "[-::-]Chat window focused:[-::-]")
+	fmt.Fprintln(textView, "<Up/Down> = select message")
+	fmt.Fprintln(textView, "<d> = download attachment")
+	fmt.Fprintln(textView, "<o> = open attachment\n")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "/name NewName = name selected contact")
 	fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
@@ -171,12 +264,6 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "/load = reload contacts")
 	fmt.Fprintln(textView, "/quit = exit app")
 	fmt.Fprintln(textView, "/help = show this help\n")
-	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
-	fmt.Fprintln(textView, "<Tab> = switch input/contacts")
-	fmt.Fprintln(textView, "<Up/Dn> = scroll history\n")
-	fmt.Fprintln(textView, "[-::-]Highlighted Message:[-::-]")
-	fmt.Fprintln(textView, "d = download attachment")
-	fmt.Fprintln(textView, "o = open attachment\n")
 }
 
 // called when text is entered by the user
@@ -249,43 +336,19 @@ func EnterCommand(key tcell.Key) {
 	textInput.SetText("")
 }
 
-// creates the TreeView for contacts
-func MakeTree() *tview.TreeView {
-	rootDir := "Contacts"
-	contactRoot = tview.NewTreeNode(rootDir).
-		SetColor(tcell.ColorYellow)
-	treeView = tview.NewTreeView().
-		SetRoot(contactRoot).
-		SetCurrentNode(contactRoot)
-
-	// If a contact was selected, open it.
-	treeView.SetChangedFunc(func(node *tview.TreeNode) {
-		reference := node.GetReference()
-		if reference == nil {
-			return // Selecting the root node does nothing.
+func GetOffsetMsgId(curId string, offset int) string {
+	if curRegions == nil {
+		return ""
+	}
+	for idx, val := range curRegions {
+		if val == curId {
+			arrPos := idx + offset
+			if len(curRegions) > arrPos && arrPos >= 0 {
+				return curRegions[arrPos]
+			}
 		}
-		children := node.GetChildren()
-		if len(children) == 0 {
-			// Load and show files in this directory.
-			recv := reference.(string)
-			SetDisplayedContact(recv)
-		} else {
-			// Collapse if visible, expand if collapsed.
-			node.SetExpanded(!node.IsExpanded())
-		}
-	})
-	treeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyTab {
-			app.SetFocus(textInput)
-			return nil
-		}
-		if event.Key() == tcell.KeyCtrlSpace {
-			app.SetFocus(textInput)
-			return nil
-		}
-		return event
-	})
-	return treeView
+	}
+	return ""
 }
 
 // loads the contact data from storage to the TreeView
