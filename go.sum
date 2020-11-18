@@ -9,6 +9,8 @@ github.com/Rhymen/go-whatsapp v0.1.1-0.20201007125822-005103751b7a h1:LW+rX0NY6L
 github.com/Rhymen/go-whatsapp v0.1.1-0.20201007125822-005103751b7a/go.mod h1:o7jjkvKnigfu432dMbQ/w4PH0Yp5u4Y6ysCNjUlcYCk=
 github.com/Rhymen/go-whatsapp v0.1.1-0.20201117204225-79ad714fa46a h1:IhYU0cQ0cvMO9MOuOO08X8zUtMQ+AVIV0D+7eZVtHe8=
 github.com/Rhymen/go-whatsapp v0.1.1-0.20201117204225-79ad714fa46a/go.mod h1:o7jjkvKnigfu432dMbQ/w4PH0Yp5u4Y6ysCNjUlcYCk=
+github.com/Rhymen/go-whatsapp v0.1.1 h1:OK+bCugQcr2YjyYKeDzULqCtM50TPUFM6LvQtszKfcw=
+github.com/Rhymen/go-whatsapp v0.1.1/go.mod h1:o7jjkvKnigfu432dMbQ/w4PH0Yp5u4Y6ysCNjUlcYCk=
 github.com/Rhymen/go-whatsapp/examples/echo v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:zgCiQtBtZ4P4gFWvwl9aashsdwOcbb/EHOGRmSzM8ME=
 github.com/Rhymen/go-whatsapp/examples/restoreSession v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:5sCUSpG616ZoSJhlt9iBNI/KXBqrVLcNUJqg7J9+8pU=
 github.com/Rhymen/go-whatsapp/examples/sendImage v0.0.0-20190325075644-cc2581bbf24d/go.mod h1:RdiyhanVEGXTam+mZ3k6Y3VDCCvXYCwReOoxGozqhHw=
@@ -98,6 +100,8 @@ github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9 h1:lpEzuenPuO1XNTe
 github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9/go.mod h1:PLPIyL7ikehBD1OAjmKKiOEhbvWyHGaNDjquXMcYABo=
 github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e h1:MRM5ITcdelLK2j1vwZ3Je0FKVCfqOLp5zO6trqMLYs0=
 github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e/go.mod h1:XV66xRDqSt+GTGFMVlhk3ULuV0y9ZmzeVGR4mloJI3M=
+github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 h1:JIAuq3EEf9cgbU6AtGPK4CTG3Zf6CKMNqf0MHTggAUA=
+github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966/go.mod h1:sUM3LWHvSMaG192sy56D9F7CNvL7jUJVXoqM1QKLnog=
 github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af h1:6yITBqGTE2lEeTPG04SN9W+iWHCRyHqlVYILiSXziwk=
 github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af/go.mod h1:4F09kP5F+am0jAwlQLddpoMDM+iewkxxt6nxUQ5nq5o=
 golang.org/x/crypto v0.0.0-20190131182504-b8fe1690c613/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
@@ -139,6 +143,8 @@ golang.org/x/sys v0.0.0-20201117170446-d9b008d0a637 h1:O5hKNaGxIT4A8OTMnuh6UpmBd
 golang.org/x/sys v0.0.0-20201117170446-d9b008d0a637/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7 h1:s330+6z/Ko3J0o6rvOcwXe5nzs7UT9tLKHoOXYn6uE0=
 golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20201118182958-a01c418693c7 h1:Z991aAXPjz0tLnj74pVXW3eWJ5lHMIBvbRfMq4M2jHA=
+golang.org/x/sys v0.0.0-20201118182958-a01c418693c7/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/term v0.0.0-20201113234701-d7a72108b828/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
 golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

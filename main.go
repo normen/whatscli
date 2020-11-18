@@ -16,14 +16,16 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.5.3"
+var VERSION string = "v0.6.0"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
+var otherChannel chan interface{}
 var contactChannel chan whatsapp.Contact
 
 var sndTxt string = ""
 var currentReceiver string = ""
+var curRegions []string
 var textView *tview.TextView
 var treeView *tview.TreeView
 var textInput *tview.InputField
@@ -49,6 +51,7 @@ func main() {
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
+	topBar.SetScrollable(false)
 	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type /help for help")
 
 	//infoBar = tview.NewTextView()
@@ -62,6 +65,37 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
+
+	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(textInput)
+			return event
+		}
+		if curRegions == nil {
+			return event
+		}
+		if event.Key() == tcell.KeyDown || event.Rune() == 'j' {
+			return event
+		}
+		if event.Key() == tcell.KeyUp || event.Rune() == 'k' {
+			return event
+		}
+		if event.Rune() == 'd' {
+			hls := textView.GetHighlights()
+			if len(hls) > 0 {
+				DownloadMessageId(hls[0], false)
+			}
+			return nil
+		}
+		if event.Rune() == 'o' {
+			hls := textView.GetHighlights()
+			if len(hls) > 0 {
+				DownloadMessageId(hls[0], true)
+			}
+			return nil
+		}
+		return event
+	})
 
 	PrintHelp()
 
@@ -138,6 +172,9 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
 	fmt.Fprintln(textView, "<Tab> = switch input/contacts")
 	fmt.Fprintln(textView, "<Up/Dn> = scroll history\n")
+	fmt.Fprintln(textView, "[-::-]Highlighted Message:[-::-]")
+	fmt.Fprintln(textView, "d = download attachment")
+	fmt.Fprintln(textView, "o = open attachment\n")
 }
 
 // called when text is entered by the user
@@ -274,7 +311,9 @@ func SetDisplayedContact(wid string) {
 	currentReceiver = wid
 	textView.Clear()
 	textView.SetTitle(messages.GetIdName(wid))
-	textView.SetText(msgStore.GetMessagesString(wid))
+	msgTxt, regIds := msgStore.GetMessagesString(wid)
+	textView.SetText(msgTxt)
+	curRegions = regIds
 }
 
 // starts the receiver and message handling thread
@@ -288,6 +327,7 @@ func StartTextReceiver() error {
 	wac.AddHandler(handler)
 	sendChannel = make(chan waMsg)
 	textChannel = make(chan whatsapp.TextMessage)
+	otherChannel = make(chan interface{})
 	contactChannel = make(chan whatsapp.Contact)
 	for {
 		select {
@@ -297,6 +337,8 @@ func StartTextReceiver() error {
 			if msgStore.AddTextMessage(rcvd) {
 				app.QueueUpdateDraw(LoadContacts)
 			}
+		case other := <-otherChannel:
+			msgStore.AddOtherMessage(&other)
 		case contact := <-contactChannel:
 			messages.SetIdName(contact.Jid, contact.Name)
 			app.QueueUpdateDraw(LoadContacts)
@@ -325,6 +367,17 @@ func SendText(wid string, text string) {
 		msgStore.AddTextMessage(msg)
 		PrintTextMessage(msg)
 	}
+}
+
+func DownloadMessageId(id string, open bool) {
+	fmt.Fprintln(textView, "[::d]..attempt download of #", id, "[::-]")
+	go func() {
+		if result, err := msgStore.DownloadMessage(id, open); err == nil {
+			fmt.Fprintln(textView, "[::d]Downloaded as [yellow]", result, "[-::-]")
+		} else {
+			fmt.Fprintln(textView, "[red::d]", err.Error(), "[-::-]")
+		}
+	}()
 }
 
 func NotifyMsg(msg whatsapp.TextMessage) {
@@ -370,10 +423,12 @@ func (t textHandler) HandleImageMessage(message whatsapp.ImageMessage) {
 			SenderJid: message.Info.SenderJid,
 			FromMe:    message.Info.FromMe,
 			Timestamp: message.Info.Timestamp,
+			Id:        message.Info.Id,
 		},
 		Text: "[IMAGE] " + message.Caption,
 	}
 	t.HandleTextMessage(msg)
+	otherChannel <- message
 }
 
 func (t textHandler) HandleDocumentMessage(message whatsapp.DocumentMessage) {
@@ -383,10 +438,12 @@ func (t textHandler) HandleDocumentMessage(message whatsapp.DocumentMessage) {
 			SenderJid: message.Info.SenderJid,
 			FromMe:    message.Info.FromMe,
 			Timestamp: message.Info.Timestamp,
+			Id:        message.Info.Id,
 		},
 		Text: "[DOCUMENT] " + message.Title,
 	}
 	t.HandleTextMessage(msg)
+	otherChannel <- message
 }
 
 func (t textHandler) HandleVideoMessage(message whatsapp.VideoMessage) {
@@ -396,10 +453,12 @@ func (t textHandler) HandleVideoMessage(message whatsapp.VideoMessage) {
 			SenderJid: message.Info.SenderJid,
 			FromMe:    message.Info.FromMe,
 			Timestamp: message.Info.Timestamp,
+			Id:        message.Info.Id,
 		},
 		Text: "[VIDEO] " + message.Caption,
 	}
 	t.HandleTextMessage(msg)
+	otherChannel <- message
 }
 
 func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
@@ -409,10 +468,12 @@ func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 			SenderJid: message.Info.SenderJid,
 			FromMe:    message.Info.FromMe,
 			Timestamp: message.Info.Timestamp,
+			Id:        message.Info.Id,
 		},
 		Text: "[AUDIO]",
 	}
 	t.HandleTextMessage(msg)
+	otherChannel <- message
 }
 
 // add contact info to database TODO: when are these sent??

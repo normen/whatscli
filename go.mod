@@ -3,7 +3,7 @@ module github.com/normen/whatscli
 go 1.15
 
 require (
-	github.com/Rhymen/go-whatsapp v0.1.1-0.20201117204225-79ad714fa46a
+	github.com/Rhymen/go-whatsapp v0.1.1
 	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
@@ -12,8 +12,9 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/tview v0.0.0-20201118063654-f007e9ad3893
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9 // indirect
-	golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7 // indirect
+	golang.org/x/sys v0.0.0-20201118182958-a01c418693c7 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 )
