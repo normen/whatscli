@@ -77,9 +77,9 @@ func GetTextMessageString(msg *whatsapp.TextMessage) string {
 		//(*msg).Info.SenderJid
 		userId := (*msg).Info.SenderJid
 		//userId := strings.Split(string((*msg).Info.RemoteJid), "-")[0] + CONTACTSUFFIX
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdName(userId) + ": [-::-]" + text
+		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(userId) + ": [-::-]" + text
 	} else { // message from others
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdName((*msg).Info.RemoteJid) + ": [-::-]" + text
+		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort((*msg).Info.RemoteJid) + ": [-::-]" + text
 	}
 	return out
 }

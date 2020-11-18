@@ -13,6 +13,8 @@ import (
 	"github.com/normen/whatscli/qrcode"
 )
 
+var connection *whatsapp.Conn
+
 func GetConnection() *whatsapp.Conn {
 	var wac *whatsapp.Conn
 	if connection == nil {

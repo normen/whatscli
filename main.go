@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/gdamore/tcell/v2"
 	"github.com/normen/whatscli/messages"
 	"github.com/rivo/tview"
-	"strings"
-	"time"
 )
 
 type waMsg struct {
@@ -15,7 +16,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.5.2"
+var VERSION string = "v0.5.3"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -29,7 +30,6 @@ var textInput *tview.InputField
 var topBar *tview.TextView
 
 //var infoBar *tview.TextView
-var connection *whatsapp.Conn
 var msgStore messages.MessageDatabase
 
 var contactRoot *tview.TreeNode
@@ -131,6 +131,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "/name NewName = name selected contact")
 	fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
+	fmt.Fprintln(textView, "/connect = (re)connect in case the connection dropped")
 	fmt.Fprintln(textView, "/load = reload contacts")
 	fmt.Fprintln(textView, "/quit = exit app")
 	fmt.Fprintln(textView, "/help = show this help\n")
@@ -145,6 +146,12 @@ func EnterCommand(key tcell.Key) {
 		return
 	}
 	if key == tcell.KeyEsc {
+		textInput.SetText("")
+		return
+	}
+	if sndTxt == "/connect" {
+		//command
+		GetConnection()
 		textInput.SetText("")
 		return
 	}
@@ -172,9 +179,11 @@ func EnterCommand(key tcell.Key) {
 			fmt.Fprintln(textView, "Use /addname 1234567 NewName")
 			return
 		}
-		messages.SetIdName(parts[1]+messages.CONTACTSUFFIX, strings.TrimPrefix(sndTxt, "/addname "+parts[1]+" "))
-		SetDisplayedContact(currentReceiver)
-		LoadContacts()
+		contact := whatsapp.Contact{
+			Jid:  parts[1] + messages.CONTACTSUFFIX,
+			Name: strings.TrimPrefix(sndTxt, "/addname "+parts[1]+" "),
+		}
+		contactChannel <- contact
 		textInput.SetText("")
 		return
 	}
@@ -184,9 +193,11 @@ func EnterCommand(key tcell.Key) {
 	}
 	if strings.Index(sndTxt, "/name ") == 0 {
 		//command
-		messages.SetIdName(currentReceiver, strings.TrimPrefix(sndTxt, "/name "))
-		SetDisplayedContact(currentReceiver)
-		LoadContacts()
+		contact := whatsapp.Contact{
+			Jid:  currentReceiver,
+			Name: strings.TrimPrefix(sndTxt, "/name "),
+		}
+		contactChannel <- contact
 		textInput.SetText("")
 		return
 	}
@@ -288,6 +299,7 @@ func StartTextReceiver() error {
 			}
 		case contact := <-contactChannel:
 			messages.SetIdName(contact.Jid, contact.Name)
+			app.QueueUpdateDraw(LoadContacts)
 		}
 	}
 	fmt.Fprintln(textView, "closing the receiver")
@@ -306,14 +318,28 @@ func SendText(wid string, text string) {
 		Text: text,
 	}
 
-	PrintTextMessage(msg)
-	_, err := connection.Send(msg)
-	msgStore.AddTextMessage(msg)
+	_, err := GetConnection().Send(msg)
 	if err != nil {
 		fmt.Fprintln(textView, "[red]error sending message: ", err, "[-]")
 	} else {
-		//fmt.Fprint(textView, "Sent msg with ID: ", msgID, "\n")
+		msgStore.AddTextMessage(msg)
+		PrintTextMessage(msg)
 	}
+}
+
+func NotifyMsg(msg whatsapp.TextMessage) {
+	if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+		//fmt.Print("\a")
+		//err := beeep.Notify(messages.GetIdName(msg.Info.RemoteJid), msg.Text, "")
+		//if err != nil {
+		//  fmt.Fprintln(textView, "[red]error in notification[-]")
+		//}
+	}
+}
+
+// prints a text message to the TextView
+func PrintTextMessage(msg whatsapp.TextMessage) {
+	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
 }
 
 // handler struct for whatsapp callbacks
@@ -330,15 +356,10 @@ func (t textHandler) HandleError(err error) {
 func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
 	textChannel <- msg
 	if msg.Info.RemoteJid != currentReceiver {
-		//fmt.Print("\a")
+		NotifyMsg(msg)
 		return
 	}
 	PrintTextMessage(msg)
-}
-
-// prints a text message to the TextView
-func PrintTextMessage(msg whatsapp.TextMessage) {
-	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
 }
 
 // methods to convert messages to TextMessage
@@ -396,7 +417,8 @@ func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 
 // add contact info to database TODO: when are these sent??
 func (t textHandler) HandleNewContact(contact whatsapp.Contact) {
-	contactChannel <- contact
+	// redundant, wac has contacts
+	//contactChannel <- contact
 }
 
 //func (t textHandler) HandleBatteryMessage(msg whatsapp.BatteryMessage) {

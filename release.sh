@@ -1,13 +1,15 @@
 #!/bin/bash
 set -e
 if [ $# -eq 0 ]; then
-  echo "Usage: ./release.sh v1.0.0"
-  exit 0
+	VERSION=$(cat main.go|grep "VERSION string"| awk -v FS="(\")" '{print $2}')
+else
+  VERSION=$1
 fi
-WINF=whatscli-$1-windows.zip
-LINUXF=whatscli-$1-linux.zip
-MACF=whatscli-$1-macos.zip
-RASPIF=whatscli-$1-raspberrypi.zip
+echo Releasing $VERSION
+WINF=whatscli-$VERSION-windows.zip
+LINUXF=whatscli-$VERSION-linux.zip
+MACF=whatscli-$VERSION-macos.zip
+RASPIF=whatscli-$VERSION-raspberrypi.zip
 
 GOOS=darwin go build -o whatscli
 zip $MACF whatscli
@@ -26,6 +28,6 @@ git pull
 LASTTAG=$(git describe --tags --abbrev=0)
 git log $LASTTAG..HEAD --no-decorate --pretty=format:"- %s" --abbrev-commit > changes.txt
 vim changes.txt
-gh release create $1 $LINUXF $MACF $WINF $RASPIF -F changes.txt -t $1
+gh release create $VERSION $LINUXF $MACF $WINF $RASPIF -F changes.txt -t $VERSION
 rm changes.txt
 rm *.zip
