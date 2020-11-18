@@ -16,7 +16,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.1"
+var VERSION string = "v0.6.2"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -77,7 +77,11 @@ func main() {
 		}
 		if event.Key() == tcell.KeyTab {
 			app.SetFocus(textInput)
-			return event
+			return nil
+		}
+		if event.Key() == tcell.KeyEsc {
+			textView.Highlight("")
+			return nil
 		}
 		if curRegions == nil || len(curRegions) == 0 {
 			return event
@@ -122,6 +126,7 @@ func main() {
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
 				DownloadMessageId(hls[0], false)
+				textView.Highlight("")
 			}
 			return nil
 		}
@@ -129,6 +134,7 @@ func main() {
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
 				DownloadMessageId(hls[0], true)
+				textView.Highlight("")
 			}
 			return nil
 		}
