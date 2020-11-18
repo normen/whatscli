@@ -350,9 +350,9 @@ func GetOffsetMsgId(curId string, offset int) string {
 		}
 	}
 	if offset > 0 {
-		return curRegions[len(curRegions)-1]
-	} else {
 		return curRegions[0]
+	} else {
+		return curRegions[len(curRegions)-1]
 	}
 }
 
