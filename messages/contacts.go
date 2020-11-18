@@ -53,10 +53,10 @@ func GetIdName(id string) string {
 		return contacts[id]
 	}
 	if val, ok := connection.Store.Contacts[id]; ok {
-		if val.Name != "" {
-			return val.Name
-		} else if val.Short != "" {
+		if val.Short != "" {
 			return val.Short
+		} else if val.Name != "" {
+			return val.Name
 		} else if val.Notify != "" {
 			return val.Notify
 		}
