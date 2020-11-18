@@ -57,6 +57,8 @@ func GetIdName(id string) string {
 			return val.Name
 		} else if val.Short != "" {
 			return val.Short
+		} else if val.Notify != "" {
+			return val.Notify
 		}
 	}
 	return strings.TrimSuffix(id, CONTACTSUFFIX)

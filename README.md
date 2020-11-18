@@ -43,7 +43,6 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 
 - Only shows existing chats
 - Only fetches a few old messages
-- Names have to be entered with the `/name` or `/addname` commands
 - No support for images, videos, documents etc.
 - No incoming message notification / count
 - No proper connection drop handling
