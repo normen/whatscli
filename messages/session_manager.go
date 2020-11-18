@@ -11,13 +11,14 @@ import (
 	"github.com/normen/whatscli/qrcode"
 )
 
-// TODO: remove this circular dependeny in favor of a better way
 var textView *tview.TextView
 
+// TODO: remove this circular dependeny in favor of a better way
 func SetTextView(tv *tview.TextView) {
 	textView = tv
 }
 
+// gets an existing connection or creates one
 func GetConnection() *whatsapp.Conn {
 	var wac *whatsapp.Conn
 	if connection == nil {
@@ -82,6 +83,7 @@ func Logout() error {
 	return removeSession()
 }
 
+// reads the session file from disk
 func readSession() (whatsapp.Session, error) {
 	session := whatsapp.Session{}
 	file, err := os.Open(GetHomeDir() + ".whatscli.session")
@@ -97,6 +99,7 @@ func readSession() (whatsapp.Session, error) {
 	return session, nil
 }
 
+// saves the session file to disk
 func writeSession(session whatsapp.Session) error {
 	file, err := os.Create(GetHomeDir() + ".whatscli.session")
 	if err != nil {
@@ -111,6 +114,7 @@ func writeSession(session whatsapp.Session) error {
 	return nil
 }
 
+// deletes the session file from disk
 func removeSession() error {
 	return os.Remove(GetHomeDir() + ".whatscli.session")
 }

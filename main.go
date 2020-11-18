@@ -336,6 +336,7 @@ func EnterCommand(key tcell.Key) {
 	textInput.SetText("")
 }
 
+// get the next message id to select (highlighted + offset)
 func GetOffsetMsgId(curId string, offset int) string {
 	if curRegions == nil || len(curRegions) == 0 {
 		return ""
@@ -438,6 +439,7 @@ func SendText(wid string, text string) {
 	}
 }
 
+// initiates a download of a specific message attachment in a new go routine
 func DownloadMessageId(id string, open bool) {
 	fmt.Fprintln(textView, "[::d]..attempt download of #", id, "[::-]")
 	go func() {
@@ -449,6 +451,7 @@ func DownloadMessageId(id string, open bool) {
 	}()
 }
 
+// notifies about a new message if its recent
 func NotifyMsg(msg whatsapp.TextMessage) {
 	if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 		//fmt.Print("\a")
@@ -545,12 +548,13 @@ func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 	otherChannel <- message
 }
 
-// add contact info to database TODO: when are these sent??
+// add contact info to database (not needed, internal db of connection is used)
 func (t textHandler) HandleNewContact(contact whatsapp.Contact) {
 	// redundant, wac has contacts
 	//contactChannel <- contact
 }
 
+// handle battery messages
 //func (t textHandler) HandleBatteryMessage(msg whatsapp.BatteryMessage) {
 //  app.QueueUpdate(func() {
 //    infoBar.SetText("🔋: " + string(msg.Percentage) + "%")

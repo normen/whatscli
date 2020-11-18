@@ -12,6 +12,7 @@ import (
 var contacts map[string]string
 var connection *whatsapp.Conn
 
+// loads custom contacts from disk
 func LoadContacts() {
 	contacts = make(map[string]string)
 	file, err := os.Open(GetHomeDir() + ".whatscli.contacts")
@@ -26,6 +27,7 @@ func LoadContacts() {
 	}
 }
 
+// saves custom contacts to disk
 func SaveContacts() {
 	file, err := os.Create(GetHomeDir() + ".whatscli.contacts")
 	if err != nil {
@@ -40,11 +42,13 @@ func SaveContacts() {
 	return
 }
 
+// sets a new name for a whatsapp id
 func SetIdName(id string, name string) {
 	contacts[id] = name
 	SaveContacts()
 }
 
+// gets a pretty name for a whatsapp id
 func GetIdName(id string) string {
 	if _, ok := contacts[id]; ok {
 		return contacts[id]
@@ -61,6 +65,7 @@ func GetIdName(id string) string {
 	return strings.TrimSuffix(id, CONTACTSUFFIX)
 }
 
+// gets a short name for a whatsapp id
 func GetIdShort(id string) string {
 	if val, ok := connection.Store.Contacts[id]; ok {
 		if val.Short != "" {
@@ -77,6 +82,7 @@ func GetIdShort(id string) string {
 	return strings.TrimSuffix(id, CONTACTSUFFIX)
 }
 
+// gets the OS home dir with a path separator at the end
 func GetHomeDir() string {
 	usr, err := user.Current()
 	if err != nil {

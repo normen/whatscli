@@ -161,6 +161,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 	return "", errors.New("No attachments found")
 }
 
+// helper to save an attachment and open it if specified
 func saveAttachment(data []byte, fileName string, openIt bool) error {
 	path := GetHomeDir() + "Downloads" + string(os.PathSeparator) + fileName
 	err := ioutil.WriteFile(path, data, 0644)
