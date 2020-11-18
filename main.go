@@ -15,7 +15,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.5.0"
+var VERSION string = "v0.5.1"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -144,10 +144,10 @@ func EnterCommand(key tcell.Key) {
 	if sndTxt == "" {
 		return
 	}
-  if key == tcell.KeyEsc {
-    textInput.SetText("")
-    return;
-  }
+	if key == tcell.KeyEsc {
+		textInput.SetText("")
+		return
+	}
 	if sndTxt == "/load" {
 		//command
 		LoadContacts()

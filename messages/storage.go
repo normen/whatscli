@@ -62,7 +62,7 @@ func (db *MessageDatabase) GetMessagesString(wid string) string {
 	var out = ""
 	for _, element := range (*db).textMessages[wid] {
 		out += GetTextMessageString(&element)
-    out += "\n"
+		out += "\n"
 	}
 	return out
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
+	"github.com/normen/whatscli/messages"
 	"github.com/normen/whatscli/qrcode"
 )
 
@@ -25,6 +26,7 @@ func GetConnection() *whatsapp.Conn {
 	} else {
 		wac = connection
 	}
+	messages.SetConnection(wac)
 	return wac
 }
 

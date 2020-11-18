@@ -2,12 +2,18 @@ package messages
 
 import (
 	"encoding/gob"
+	"github.com/Rhymen/go-whatsapp"
 	"os"
 	"os/user"
 	"strings"
 )
 
 var contacts map[string]string
+var connection *whatsapp.Conn
+
+func SetConnection(conn *whatsapp.Conn) {
+	connection = conn
+}
 
 func LoadContacts() {
 	contacts = make(map[string]string)
@@ -45,6 +51,13 @@ func SetIdName(id string, name string) {
 func GetIdName(id string) string {
 	if _, ok := contacts[id]; ok {
 		return contacts[id]
+	}
+	if val, ok := connection.Store.Contacts[id]; ok {
+		if val.Name != "" {
+			return val.Name
+		} else if val.Short != "" {
+			return val.Short
+		}
 	}
 	return strings.TrimSuffix(id, CONTACTSUFFIX)
 }
