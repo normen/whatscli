@@ -337,7 +337,7 @@ func EnterCommand(key tcell.Key) {
 }
 
 func GetOffsetMsgId(curId string, offset int) string {
-	if curRegions == nil {
+	if curRegions == nil || len(curRegions) == 0 {
 		return ""
 	}
 	for idx, val := range curRegions {
@@ -348,7 +348,11 @@ func GetOffsetMsgId(curId string, offset int) string {
 			}
 		}
 	}
-	return ""
+	if offset > 0 {
+		return curRegions[len(curRegions)-1]
+	} else {
+		return curRegions[0]
+	}
 }
 
 // loads the contact data from storage to the TreeView
