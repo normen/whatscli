@@ -32,8 +32,9 @@ A command line interface for whatsapp, based on [go-whatsapp](https://github.com
 
 Things that work.
 
+- Connects through the Web App API without a browser
 - Allows sending and receiving WhatsApp messages in a command line app
-- Connects through the Web App API without browser
+- Allows downloading and opening image/video/audio/document attachments
 - Uses QR code for simple setup
 - Binaries for Windows, Mac, Linux and RaspBerry Pi
 
@@ -43,7 +44,6 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 
 - Only shows existing chats
 - Only fetches a few old messages
-- No support for images, videos, documents etc.
 - No incoming message notification / count
 - No proper connection drop handling
 - Not configurable at all
