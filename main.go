@@ -19,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.5"
+var VERSION string = "v0.6.6"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -296,20 +296,24 @@ func MakeTree() *tview.TreeView {
 
 // prints help to chat view
 func PrintHelp() {
-	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"[-]\n")
+	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"[-]")
+	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
 	fmt.Fprintln(textView, "<Tab> = switch input/contacts")
-	fmt.Fprintln(textView, "<Up/Dn> = scroll history")
-	fmt.Fprintln(textView, "<Ctrl-W> = focus chat window\n")
+	fmt.Fprintln(textView, "<Up/Dn> = scroll history/contacts")
+	fmt.Fprintln(textView, "<Ctrl-W> = focus chat window")
+	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Chat window focused:[-::-]")
 	fmt.Fprintln(textView, "<Up/Down> = select message")
 	fmt.Fprintln(textView, "<d> = download attachment to $HOME/Downloads")
-	fmt.Fprintln(textView, "<o> = download & open attachment\n")
-	fmt.Fprintln(textView, "<s> = show image in chat using jp2a command\n")
+	fmt.Fprintln(textView, "<o> = download & open attachment")
+	fmt.Fprintln(textView, "<s> = show image in chat using jp2a command")
+	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "/connect = (re)connect in case the connection dropped")
 	fmt.Fprintln(textView, "/quit = exit app")
-	fmt.Fprintln(textView, "/help = show this help\n")
+	fmt.Fprintln(textView, "/help = show this help")
+	fmt.Fprintln(textView, "")
 }
 
 // called when text is entered by the user
@@ -546,6 +550,11 @@ func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
 		return
 	}
 	PrintTextMessage(msg)
+	// add to regions if current window, otherwise its not selectable
+	id := msg.Info.Id
+	app.QueueUpdate(func() {
+		curRegions = append(curRegions, id)
+	})
 }
 
 // methods to convert messages to TextMessage
