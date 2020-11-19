@@ -44,5 +44,6 @@ cd ../../BrewCode/homebrew-tap
 sed -i bak "s/sha256 \".*/sha256 \"$SHASUM\"/" Formula/whatscli.rb
 sed -i bak "s!url \".*!url \"$URL\"!" Formula/whatscli.rb
 rm Formula/whatscli.rbbak
+git add -A
 git commit -m "update whatscli to $VERSION"
-git -u -f push
+git push
