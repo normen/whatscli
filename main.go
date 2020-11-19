@@ -19,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.4"
+var VERSION string = "v0.6.5"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -303,14 +303,11 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "<Ctrl-W> = focus chat window\n")
 	fmt.Fprintln(textView, "[-::-]Chat window focused:[-::-]")
 	fmt.Fprintln(textView, "<Up/Down> = select message")
-	fmt.Fprintln(textView, "<d> = download attachment")
-	fmt.Fprintln(textView, "<o> = open attachment\n")
-	fmt.Fprintln(textView, "<s> = show image using jp2a\n")
+	fmt.Fprintln(textView, "<d> = download attachment to $HOME/Downloads")
+	fmt.Fprintln(textView, "<o> = download & open attachment\n")
+	fmt.Fprintln(textView, "<s> = show image in chat using jp2a command\n")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
-	fmt.Fprintln(textView, "/name NewName = name selected contact")
-	fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
 	fmt.Fprintln(textView, "/connect = (re)connect in case the connection dropped")
-	fmt.Fprintln(textView, "/load = reload contacts")
 	fmt.Fprintln(textView, "/quit = exit app")
 	fmt.Fprintln(textView, "/help = show this help\n")
 }
@@ -407,7 +404,7 @@ func GetOffsetMsgId(curId string, offset int) string {
 
 func PrintImage(id string) {
 	if path, err := msgStore.DownloadMessage(id, false); err == nil {
-		cmd := exec.Command("jp2a", path)
+		cmd := exec.Command("jp2a", "--color", path)
 		stdout, err := cmd.StdoutPipe()
 		if nil != err {
 			fmt.Fprintln(textView, "Error getting pipe for jp2a command")
