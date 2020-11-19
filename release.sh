@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+# get verison from main.go VERSION string
 if [ $# -eq 0 ]; then
 	VERSION=$(cat main.go|grep "VERSION string"| awk -v FS="(\")" '{print $2}')
 else
@@ -11,6 +12,7 @@ LINUXF=whatscli-$VERSION-linux.zip
 MACF=whatscli-$VERSION-macos.zip
 RASPIF=whatscli-$VERSION-raspberrypi.zip
 
+# build zip files with binaries
 GOOS=darwin go build -o whatscli
 zip $MACF whatscli
 rm whatscli
@@ -24,6 +26,7 @@ GOOS=linux GOARCH=arm GOARM=5 go build -o whatscli
 zip $RASPIF whatscli
 rm whatscli
 
+# publish to github
 git pull
 LASTTAG=$(git describe --tags --abbrev=0)
 git log $LASTTAG..HEAD --no-decorate --pretty=format:"- %s" --abbrev-commit > changes.txt
@@ -36,6 +39,10 @@ rm *.zip
 URL="https://github.com/normen/whatscli/archive/$VERSION.tar.gz"
 wget $URL
 SHASUM=$(shasum -a 256 $VERSION.tar.gz|awk '{print$1}')
-sed -i bak "s/sha256 \".*/sha256 \"$SHASUM\"/" ../../BrewCode/homebrew-tap/Formula/whatscli.rb
-sed -i bak "s!url \".*!url \"$URL\"!" ../../BrewCode/homebrew-tap/Formula/whatscli.rb
-rm *.tar.gz
+rm $VERSION.tar.gz
+cd ../../BrewCode/homebrew-tap
+sed -i bak "s/sha256 \".*/sha256 \"$SHASUM\"/" Formula/whatscli.rb
+sed -i bak "s!url \".*!url \"$URL\"!" Formula/whatscli.rb
+rm Formula/whatscli.rbbak
+git commit -m "update whatscli to $VERSION"
+git -u -f push
