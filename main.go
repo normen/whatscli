@@ -71,22 +71,27 @@ func main() {
 
 	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlE {
+			//TODO: Boilerplate
 			textView.Highlight("")
+			textView.ScrollToEnd()
 			app.SetFocus(treeView)
 			return nil
 		}
 		if event.Key() == tcell.KeyCtrlSpace {
 			textView.Highlight("")
+			textView.ScrollToEnd()
 			app.SetFocus(textInput)
 			return nil
 		}
 		if event.Key() == tcell.KeyTab {
 			textView.Highlight("")
+			textView.ScrollToEnd()
 			app.SetFocus(textInput)
 			return nil
 		}
 		if event.Key() == tcell.KeyEsc {
 			textView.Highlight("")
+			textView.ScrollToEnd()
 			app.SetFocus(textInput)
 			return nil
 		}
