@@ -138,6 +138,14 @@ func main() {
 			}
 			return nil
 		}
+		if event.Rune() == 'i' {
+			hls := textView.GetHighlights()
+			if len(hls) > 0 {
+				fmt.Fprintf(textView, msgStore.GetMessageInfo(hls[0]))
+				textView.Highlight("")
+			}
+			return nil
+		}
 		return event
 	})
 
@@ -410,7 +418,7 @@ func StartTextReceiver() error {
 		case msg := <-sendChannel:
 			SendText(msg.Wid, msg.Text)
 		case rcvd := <-textChannel:
-			if msgStore.AddTextMessage(rcvd) {
+			if msgStore.AddTextMessage(&rcvd) {
 				app.QueueUpdateDraw(LoadContacts)
 			}
 		case other := <-otherChannel:
@@ -440,7 +448,7 @@ func SendText(wid string, text string) {
 	if err != nil {
 		fmt.Fprintln(textView, "[red]error sending message: ", err, "[-]")
 	} else {
-		msgStore.AddTextMessage(msg)
+		msgStore.AddTextMessage(&msg)
 		PrintTextMessage(msg)
 	}
 }
