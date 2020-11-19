@@ -31,3 +31,11 @@ vim changes.txt
 gh release create $VERSION $LINUXF $MACF $WINF $RASPIF -F changes.txt -t $VERSION
 rm changes.txt
 rm *.zip
+
+# update homebrew tap
+URL="https://github.com/normen/whatscli/archive/$VERSION.tar.gz"
+wget $URL
+SHASUM=$(shasum -a 256 $VERSION.tar.gz|awk '{print$1}')
+sed -i bak "s/sha256 \".*/sha256 \"$SHASUM\"/" ../../BrewCode/homebrew-tap/Formula/whatscli.rb
+sed -i bak "s!url \".*!url \"$URL\"!" ../../BrewCode/homebrew-tap/Formula/whatscli.rb
+rm *.tar.gz
