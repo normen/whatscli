@@ -2,31 +2,7 @@
 
 A command line interface for whatsapp, based on [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [tview](https://github.com/rivo/tview)
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ WhatsCLI v0.4.2  Help: /name NewName | /addname 123456 NewName | /quit |│
-├──────────────────────────────┬──────────────────────────────────────────┤
-│Contacts                      │(03-14-12 22:59:00) Me: Hey, whatscli here│
-│├──Peter                      │(03-14-12 23:00:00) Peter: Cool 😀        │
-│├──Paul                       │                                          │
-│└──Mary                       │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              │                                          │
-│                              ├──────────────────────────────────────────┤
-│                              │Yeah, love the shell!                     │
-└──────────────────────────────┴──────────────────────────────────────────┘
-```
+![whatscli-screenshot](/doc/screenshot.png?raw=true "WhatsCLI 0.6.5")
 
 ## Features
 
@@ -46,7 +22,8 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 - Only fetches a few old messages
 - No incoming message notification / count
 - No proper connection drop handling
-- Not configurable at all
+- No uploading of images/video/audio/data
+- Not configurable at all (except through your terminal settings)
 - Leaves its config files in your home folder
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when FaceBook changes stuff in their web app
 
