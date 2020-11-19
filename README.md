@@ -16,7 +16,7 @@ Things that work.
 
 ### Caveats
 
-This is a WIP. Heres some things you might expect to work that don't. Plus some other things I should mention.
+This is a WIP and mainly meant for my personal use. Heres some things you might expect to work that don't. Plus some other things I should mention.
 
 - Only shows existing chats
 - Only fetches a few old messages
@@ -31,8 +31,28 @@ This is a WIP. Heres some things you might expect to work that don't. Plus some 
 
 How to get it running and how to use it
 
+### Latest Release
+
+Always fresh, always up to date.
+
 - Download a release
 - Put the binary in your PATH (optional)
 - Run with `whatscli` (or double-click)
 - Scan the QR code with WhatsApp on your phone (maybe resize shell)
+
+### Package Managers
+
+Some unofficial ways to install via package managers are supported but the installed version might be out of date.
+
+##### MacOS
+
+Using homebrew:
+- `brew install normen/tap/whatscli`
+
+##### Arch Linux
+
+Arch AUR package:
+- `git clone https://aur.archlinux.org/whatscli.git`
+- `makepkg -si`
+- `yay -S whatscli`
 
