@@ -146,32 +146,32 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 		case whatsapp.ImageMessage:
 			if data, err := v.Download(); err == nil {
 				fileName = v.Info.Id + "." + strings.TrimPrefix(v.Type, "image/")
-				err := saveAttachment(data, fileName, open)
-				return fileName, err
+				path, err := saveAttachment(data, fileName, open)
+				return path, err
 			} else {
 				return fileName, err
 			}
 		case whatsapp.DocumentMessage:
 			if data, err := v.Download(); err == nil {
 				fileName = v.Info.Id + "." + strings.TrimPrefix(strings.TrimPrefix(v.Type, "application/"), "document/")
-				err := saveAttachment(data, fileName, open)
-				return fileName, err
+				path, err := saveAttachment(data, fileName, open)
+				return path, err
 			} else {
 				return fileName, err
 			}
 		case whatsapp.AudioMessage:
 			if data, err := v.Download(); err == nil {
 				fileName = v.Info.Id + "." + strings.TrimPrefix(v.Type, "audio/")
-				err := saveAttachment(data, fileName, open)
-				return fileName, err
+				path, err := saveAttachment(data, fileName, open)
+				return path, err
 			} else {
 				return fileName, err
 			}
 		case whatsapp.VideoMessage:
 			if data, err := v.Download(); err == nil {
 				fileName = v.Info.Id + "." + strings.TrimPrefix(v.Type, "video/")
-				err := saveAttachment(data, fileName, open)
-				return fileName, err
+				path, err := saveAttachment(data, fileName, open)
+				return path, err
 			} else {
 				return fileName, err
 			}
@@ -181,7 +181,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 }
 
 // helper to save an attachment and open it if specified
-func saveAttachment(data []byte, fileName string, openIt bool) error {
+func saveAttachment(data []byte, fileName string, openIt bool) (string, error) {
 	path := GetHomeDir() + "Downloads" + string(os.PathSeparator) + fileName
 	err := ioutil.WriteFile(path, data, 0644)
 	if err == nil {
@@ -189,7 +189,7 @@ func saveAttachment(data []byte, fileName string, openIt bool) error {
 			open.Run(path)
 		}
 	} else {
-		return err
+		return path, err
 	}
-	return nil
+	return path, nil
 }
