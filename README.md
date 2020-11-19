@@ -44,15 +44,14 @@ Always fresh, always up to date.
 
 Some unofficial ways to install via package managers are supported but the installed version might be out of date.
 
-##### MacOS
+#### MacOS (homebrew)
 
-Using homebrew:
 - `brew install normen/tap/whatscli`
 
-##### Arch Linux
+#### Arch Linux (AUR)
 
-Arch AUR package:
 - `git clone https://aur.archlinux.org/whatscli.git`
+- `cd whatscli`
 - `makepkg -si`
 - `yay -S whatscli`
 
