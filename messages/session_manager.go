@@ -44,9 +44,6 @@ func Login() error {
 // LoginWithConnection logs in the user using a provided connection. It ries to see if a session already exists. If not, tries to create a
 // new one using qr scanned on the terminal.
 func LoginWithConnection(wac *whatsapp.Conn) error {
-	if wac.Info != nil && wac.Info.Connected {
-		return nil
-	}
 	//load saved session
 	session, err := readSession()
 	if err == nil {

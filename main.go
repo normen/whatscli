@@ -19,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.7"
+var VERSION string = "v0.6.8"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -307,7 +307,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "<Up/Down> = select message")
 	fmt.Fprintln(textView, "<d> = download attachment to $HOME/Downloads")
 	fmt.Fprintln(textView, "<o> = download & open attachment")
-	fmt.Fprintln(textView, "<s> = show image in chat using jp2a command")
+	fmt.Fprintln(textView, "<s> = download & show image in chat using jp2a command")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "/connect = (re)connect in case the connection dropped")
@@ -327,7 +327,7 @@ func EnterCommand(key tcell.Key) {
 	}
 	if sndTxt == "/connect" {
 		//command
-		messages.GetConnection()
+		messages.Login()
 		textInput.SetText("")
 		return
 	}
@@ -423,29 +423,44 @@ func PrintError(err error) {
 
 // prints an image attachment to the TextView (by message id)
 func PrintImage(id string) {
-	PrintText("[::d]loading image..[::-]")
 	var err error
-	var data []byte
-	if data, err = msgStore.LoadMessageData(id); err == nil {
-		cmd := exec.Command("jp2a", "--color", "-")
+	var path string
+	PrintText("[::d]loading..[::-]")
+	if path, err = msgStore.DownloadMessage(id, false); err == nil {
+		cmd := exec.Command("jp2a", "--color", path)
 		var stdout io.ReadCloser
-		var stdin io.WriteCloser
 		if stdout, err = cmd.StdoutPipe(); err == nil {
-			if stdin, err = cmd.StdinPipe(); err == nil {
-				if err = cmd.Start(); err == nil {
-					go func() {
-						writer := bufio.NewWriter(stdin)
-						writer.Write(data)
-					}()
-					reader := bufio.NewReader(stdout)
-					io.Copy(tview.ANSIWriter(textView), reader)
-					app.Draw()
-					return
-				}
+			if err = cmd.Start(); err == nil {
+				reader := bufio.NewReader(stdout)
+				io.Copy(tview.ANSIWriter(textView), reader)
+				return
 			}
 		}
 	}
 	PrintError(err)
+}
+
+// initiates a download of a specific message attachment in a new go routine
+func DownloadMessageId(id string, open bool) {
+	PrintText("[::d]loading..[::-]")
+	go func() {
+		if result, err := msgStore.DownloadMessage(id, open); err == nil {
+			fmt.Fprintln(textView, "[::d]Downloaded as [yellow]", result, "[-::-]")
+		} else {
+			PrintError(err)
+		}
+	}()
+}
+
+// notifies about a new message if its recent
+func NotifyMsg(msg whatsapp.TextMessage) {
+	if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+		//fmt.Print("\a")
+		//err := beeep.Notify(messages.GetIdName(msg.Info.RemoteJid), msg.Text, "")
+		//if err != nil {
+		//  fmt.Fprintln(textView, "[red]error in notification[-]")
+		//}
+	}
 }
 
 // loads the contact data from storage to the TreeView
@@ -528,29 +543,6 @@ func SendText(wid string, text string) {
 	} else {
 		msgStore.AddTextMessage(&msg)
 		PrintTextMessage(msg)
-	}
-}
-
-// initiates a download of a specific message attachment in a new go routine
-func DownloadMessageId(id string, open bool) {
-	fmt.Fprintln(textView, "[::d]..attempt download of #", id, "[::-]")
-	go func() {
-		if result, err := msgStore.DownloadMessage(id, open); err == nil {
-			fmt.Fprintln(textView, "[::d]Downloaded as [yellow]", result, "[-::-]")
-		} else {
-			fmt.Fprintln(textView, "[red::d]", err.Error(), "[-::-]")
-		}
-	}()
-}
-
-// notifies about a new message if its recent
-func NotifyMsg(msg whatsapp.TextMessage) {
-	if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
-		//fmt.Print("\a")
-		//err := beeep.Notify(messages.GetIdName(msg.Info.RemoteJid), msg.Text, "")
-		//if err != nil {
-		//  fmt.Fprintln(textView, "[red]error in notification[-]")
-		//}
 	}
 }
 
