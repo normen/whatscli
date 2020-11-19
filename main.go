@@ -282,6 +282,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "<Up/Down> = select message")
 	fmt.Fprintln(textView, "<d> = download attachment")
 	fmt.Fprintln(textView, "<o> = open attachment\n")
+	fmt.Fprintln(textView, "<s> = show image using jp2a\n")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "/name NewName = name selected contact")
 	fmt.Fprintln(textView, "/addname 1234567 NewName = add name for number")
