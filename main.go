@@ -327,6 +327,7 @@ func EnterCommand(key tcell.Key) {
 	}
 	if sndTxt == "/connect" {
 		//command
+		msgStore.Init()
 		messages.Login()
 		textInput.SetText("")
 		return
