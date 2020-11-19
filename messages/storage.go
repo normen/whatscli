@@ -158,40 +158,52 @@ func (db *MessageDatabase) LoadMessageData(wid string) ([]byte, error) {
 // attempts to download a messages attachments, returns path or error message
 func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error) {
 	if msg, ok := (*db).otherMessages[wid]; ok {
-		var fileName string = ""
+		var fileName string = GetHomeDir() + "Downloads" + string(os.PathSeparator)
 		switch v := (*msg).(type) {
 		default:
 		case whatsapp.ImageMessage:
-			if data, err := v.Download(); err == nil {
-				fileName = v.Info.Id + "." + strings.TrimPrefix(v.Type, "image/")
-				path, err := saveAttachment(data, fileName, open)
-				return path, err
-			} else {
+			fileName += v.Info.Id + "." + strings.TrimPrefix(v.Type, "image/")
+			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
+			} else if os.IsNotExist(err) {
+				if data, err := v.Download(); err == nil {
+					return saveAttachment(data, fileName, open)
+				} else {
+					return fileName, err
+				}
 			}
 		case whatsapp.DocumentMessage:
-			if data, err := v.Download(); err == nil {
-				fileName = v.Info.Id + "." + strings.TrimPrefix(strings.TrimPrefix(v.Type, "application/"), "document/")
-				path, err := saveAttachment(data, fileName, open)
-				return path, err
-			} else {
+			fileName += v.Info.Id + "." + strings.TrimPrefix(strings.TrimPrefix(v.Type, "application/"), "document/")
+			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
+			} else if os.IsNotExist(err) {
+				if data, err := v.Download(); err == nil {
+					return saveAttachment(data, fileName, open)
+				} else {
+					return fileName, err
+				}
 			}
 		case whatsapp.AudioMessage:
-			if data, err := v.Download(); err == nil {
-				fileName = v.Info.Id + "." + strings.TrimPrefix(v.Type, "audio/")
-				path, err := saveAttachment(data, fileName, open)
-				return path, err
-			} else {
+			fileName += v.Info.Id + "." + strings.TrimPrefix(v.Type, "audio/")
+			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
+			} else if os.IsNotExist(err) {
+				if data, err := v.Download(); err == nil {
+					return saveAttachment(data, fileName, open)
+				} else {
+					return fileName, err
+				}
 			}
 		case whatsapp.VideoMessage:
-			if data, err := v.Download(); err == nil {
-				fileName = v.Info.Id + "." + strings.TrimPrefix(v.Type, "video/")
-				path, err := saveAttachment(data, fileName, open)
-				return path, err
-			} else {
+			fileName += v.Info.Id + "." + strings.TrimPrefix(v.Type, "video/")
+			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
+			} else if os.IsNotExist(err) {
+				if data, err := v.Download(); err == nil {
+					return saveAttachment(data, fileName, open)
+				} else {
+					return fileName, err
+				}
 			}
 		}
 	}
@@ -199,8 +211,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 }
 
 // helper to save an attachment and open it if specified
-func saveAttachment(data []byte, fileName string, openIt bool) (string, error) {
-	path := GetHomeDir() + "Downloads" + string(os.PathSeparator) + fileName
+func saveAttachment(data []byte, path string, openIt bool) (string, error) {
 	err := ioutil.WriteFile(path, data, 0644)
 	if err == nil {
 		if openIt {
