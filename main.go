@@ -19,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.6"
+var VERSION string = "v0.6.7"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -242,7 +242,7 @@ func main() {
 	app.SetFocus(textInput)
 	go func() {
 		if err := StartTextReceiver(); err != nil {
-			fmt.Fprintln(textView, "[red]", err, "[-]")
+			PrintError(err)
 		}
 	}()
 	app.Run()
@@ -406,19 +406,46 @@ func GetOffsetMsgId(curId string, offset int) string {
 	}
 }
 
+// prints a text message to the TextView
+func PrintTextMessage(msg whatsapp.TextMessage) {
+	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
+}
+
+// prints text to the TextView
+func PrintText(txt string) {
+	fmt.Fprintln(textView, txt)
+}
+
+// prints an error to the TextView
+func PrintError(err error) {
+	fmt.Fprintln(textView, "[red]", err.Error(), "[-]")
+}
+
+// prints an image attachment to the TextView (by message id)
 func PrintImage(id string) {
-	if path, err := msgStore.DownloadMessage(id, false); err == nil {
-		cmd := exec.Command("jp2a", "--color", path)
-		stdout, err := cmd.StdoutPipe()
-		if nil != err {
-			fmt.Fprintln(textView, "Error getting pipe for jp2a command")
+	PrintText("[::d]loading image..[::-]")
+	var err error
+	var data []byte
+	if data, err = msgStore.LoadMessageData(id); err == nil {
+		cmd := exec.Command("jp2a", "--color", "-")
+		var stdout io.ReadCloser
+		var stdin io.WriteCloser
+		if stdout, err = cmd.StdoutPipe(); err == nil {
+			if stdin, err = cmd.StdinPipe(); err == nil {
+				if err = cmd.Start(); err == nil {
+					go func() {
+						writer := bufio.NewWriter(stdin)
+						writer.Write(data)
+					}()
+					reader := bufio.NewReader(stdout)
+					io.Copy(tview.ANSIWriter(textView), reader)
+					app.Draw()
+					return
+				}
+			}
 		}
-		reader := bufio.NewReader(stdout)
-		if err := cmd.Start(); nil != err {
-			fmt.Fprintln(textView, "Error starting jp2a command")
-		}
-		io.Copy(tview.ANSIWriter(textView), reader)
 	}
+	PrintError(err)
 }
 
 // loads the contact data from storage to the TreeView
@@ -497,7 +524,7 @@ func SendText(wid string, text string) {
 
 	_, err := messages.GetConnection().Send(msg)
 	if err != nil {
-		fmt.Fprintln(textView, "[red]error sending message: ", err, "[-]")
+		PrintError(err)
 	} else {
 		msgStore.AddTextMessage(&msg)
 		PrintTextMessage(msg)
@@ -527,18 +554,13 @@ func NotifyMsg(msg whatsapp.TextMessage) {
 	}
 }
 
-// prints a text message to the TextView
-func PrintTextMessage(msg whatsapp.TextMessage) {
-	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
-}
-
 // handler struct for whatsapp callbacks
 type textHandler struct{}
 
 // HandleError implements the error handler interface for go-whatsapp
 func (t textHandler) HandleError(err error) {
 	// TODO : handle go routine here
-	fmt.Fprintln(textView, "[red]error in textHandler : ", err, "[-]")
+	PrintError(err)
 	return
 }
 

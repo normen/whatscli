@@ -137,6 +137,24 @@ func GetTextMessageString(msg *whatsapp.TextMessage) string {
 	return out
 }
 
+// load data for message specified by message id TODO: support types
+func (db *MessageDatabase) LoadMessageData(wid string) ([]byte, error) {
+	if msg, ok := (*db).otherMessages[wid]; ok {
+		switch v := (*msg).(type) {
+		default:
+		case whatsapp.ImageMessage:
+			return v.Download()
+		case whatsapp.DocumentMessage:
+			//return v.Download()
+		case whatsapp.AudioMessage:
+			//return v.Download()
+		case whatsapp.VideoMessage:
+			//return v.Download()
+		}
+	}
+	return []byte{}, errors.New("This is not an image message")
+}
+
 // attempts to download a messages attachments, returns path or error message
 func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error) {
 	if msg, ok := (*db).otherMessages[wid]; ok {
