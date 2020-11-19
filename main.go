@@ -19,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.3"
+var VERSION string = "v0.6.4"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -71,19 +71,23 @@ func main() {
 
 	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlE {
+			textView.Highlight("")
 			app.SetFocus(treeView)
 			return nil
 		}
 		if event.Key() == tcell.KeyCtrlSpace {
+			textView.Highlight("")
 			app.SetFocus(textInput)
 			return nil
 		}
 		if event.Key() == tcell.KeyTab {
+			textView.Highlight("")
 			app.SetFocus(textInput)
 			return nil
 		}
 		if event.Key() == tcell.KeyEsc {
 			textView.Highlight("")
+			app.SetFocus(textInput)
 			return nil
 		}
 		if curRegions == nil || len(curRegions) == 0 {
@@ -130,6 +134,8 @@ func main() {
 			if len(hls) > 0 {
 				DownloadMessageId(hls[0], false)
 				textView.Highlight("")
+				textView.ScrollToEnd()
+				app.SetFocus(textInput)
 			}
 			return nil
 		}
@@ -138,6 +144,8 @@ func main() {
 			if len(hls) > 0 {
 				DownloadMessageId(hls[0], true)
 				textView.Highlight("")
+				textView.ScrollToEnd()
+				app.SetFocus(textInput)
 			}
 			return nil
 		}
@@ -146,6 +154,8 @@ func main() {
 			if len(hls) > 0 {
 				fmt.Fprintln(textView, msgStore.GetMessageInfo(hls[0]))
 				textView.Highlight("")
+				textView.ScrollToEnd()
+				app.SetFocus(textInput)
 			}
 			return nil
 		}
@@ -154,6 +164,8 @@ func main() {
 			if len(hls) > 0 {
 				go PrintImage(hls[0])
 				textView.Highlight("")
+				textView.ScrollToEnd()
+				app.SetFocus(textInput)
 			}
 			return nil
 		}
@@ -178,6 +190,9 @@ func main() {
 		}
 		if event.Key() == tcell.KeyCtrlW {
 			app.SetFocus(textView)
+			if curRegions != nil && len(curRegions) > 0 {
+				textView.Highlight(curRegions[len(curRegions)-1])
+			}
 			return nil
 		}
 		if event.Key() == tcell.KeyTab {
@@ -264,6 +279,9 @@ func MakeTree() *tview.TreeView {
 		}
 		if event.Key() == tcell.KeyCtrlW {
 			app.SetFocus(textView)
+			if curRegions != nil && len(curRegions) > 0 {
+				textView.Highlight(curRegions[len(curRegions)-1])
+			}
 			return nil
 		}
 		return event
