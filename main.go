@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -16,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.2"
+var VERSION string = "v0.6.3"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -141,7 +144,15 @@ func main() {
 		if event.Rune() == 'i' {
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
-				fmt.Fprintf(textView, msgStore.GetMessageInfo(hls[0]))
+				fmt.Fprintln(textView, msgStore.GetMessageInfo(hls[0]))
+				textView.Highlight("")
+			}
+			return nil
+		}
+		if event.Rune() == 's' {
+			hls := textView.GetHighlights()
+			if len(hls) > 0 {
+				go PrintImage(hls[0])
 				textView.Highlight("")
 			}
 			return nil
@@ -367,6 +378,21 @@ func GetOffsetMsgId(curId string, offset int) string {
 		return curRegions[0]
 	} else {
 		return curRegions[len(curRegions)-1]
+	}
+}
+
+func PrintImage(id string) {
+	if path, err := msgStore.DownloadMessage(id, false); err == nil {
+		cmd := exec.Command("jp2a", path)
+		stdout, err := cmd.StdoutPipe()
+		if nil != err {
+			fmt.Fprintln(textView, "Error getting pipe for jp2a command")
+		}
+		reader := bufio.NewReader(stdout)
+		if err := cmd.Start(); nil != err {
+			fmt.Fprintln(textView, "Error starting jp2a command")
+		}
+		io.Copy(tview.ANSIWriter(textView), reader)
 	}
 }
 
