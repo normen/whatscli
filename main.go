@@ -70,26 +70,24 @@ func main() {
 		})
 
 	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlE {
+		switch key := event.Key(); key{
+		case tcell.KeyCtrlE:
 			//TODO: Boilerplate
 			textView.Highlight("")
 			textView.ScrollToEnd()
 			app.SetFocus(treeView)
 			return nil
-		}
-		if event.Key() == tcell.KeyCtrlSpace {
+		case tcell.KeyCtrlSpace:
 			textView.Highlight("")
 			textView.ScrollToEnd()
 			app.SetFocus(textInput)
 			return nil
-		}
-		if event.Key() == tcell.KeyTab {
+		case tcell.KeyTab:
 			textView.Highlight("")
 			textView.ScrollToEnd()
 			app.SetFocus(textInput)
 			return nil
-		}
-		if event.Key() == tcell.KeyEsc {
+		case tcell.KeyEsc :
 			textView.Highlight("")
 			textView.ScrollToEnd()
 			app.SetFocus(textInput)
@@ -124,17 +122,16 @@ func main() {
 			textView.ScrollToHighlight()
 			return nil
 		}
-		if event.Rune() == 'G' {
+		switch _rune := event.Rune(); _rune{
+		case 'G':
 			textView.Highlight(curRegions[len(curRegions)-1])
 			textView.ScrollToHighlight()
 			return nil
-		}
-		if event.Rune() == 'g' {
+		case 'g':
 			textView.Highlight(curRegions[0])
 			textView.ScrollToHighlight()
 			return nil
-		}
-		if event.Rune() == 'd' {
+		case 'd':
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
 				DownloadMessageId(hls[0], false)
@@ -143,8 +140,7 @@ func main() {
 				app.SetFocus(textInput)
 			}
 			return nil
-		}
-		if event.Rune() == 'o' {
+		case 'o':
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
 				DownloadMessageId(hls[0], true)
@@ -153,8 +149,7 @@ func main() {
 				app.SetFocus(textInput)
 			}
 			return nil
-		}
-		if event.Rune() == 'i' {
+		case 'i':
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
 				fmt.Fprintln(textView, msgStore.GetMessageInfo(hls[0]))
@@ -163,8 +158,7 @@ func main() {
 				app.SetFocus(textInput)
 			}
 			return nil
-		}
-		if event.Rune() == 's' {
+		case 's':
 			hls := textView.GetHighlights()
 			if len(hls) > 0 {
 				go PrintImage(hls[0])
@@ -189,40 +183,35 @@ func main() {
 	})
 	textInput.SetDoneFunc(EnterCommand)
 	textInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlE {
+		switch key := event.Key(); key{
+		case tcell.KeyCtrlE:
 			app.SetFocus(treeView)
 			return nil
-		}
-		if event.Key() == tcell.KeyCtrlW {
+		case tcell.KeyCtrlW:
 			app.SetFocus(textView)
 			if curRegions != nil && len(curRegions) > 0 {
 				textView.Highlight(curRegions[len(curRegions)-1])
 			}
 			return nil
-		}
-		if event.Key() == tcell.KeyTab {
+		case tcell.KeyTab:
 			app.SetFocus(treeView)
 			return nil
-		}
-		if event.Key() == tcell.KeyDown {
+		case tcell.KeyDown:
 			offset, _ := textView.GetScrollOffset()
 			offset += 1
 			textView.ScrollTo(offset, 0)
 			return nil
-		}
-		if event.Key() == tcell.KeyUp {
+		case tcell.KeyUp:
 			offset, _ := textView.GetScrollOffset()
 			offset -= 1
 			textView.ScrollTo(offset, 0)
 			return nil
-		}
-		if event.Key() == tcell.KeyPgDn {
+		case tcell.KeyPgDn:
 			offset, _ := textView.GetScrollOffset()
 			offset += 10
 			textView.ScrollTo(offset, 0)
 			return nil
-		}
-		if event.Key() == tcell.KeyPgUp {
+		case tcell.KeyPgUp:
 			offset, _ := textView.GetScrollOffset()
 			offset -= 10
 			textView.ScrollTo(offset, 0)
@@ -274,15 +263,14 @@ func MakeTree() *tview.TreeView {
 		}
 	})
 	treeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyTab {
+		switch key := event.Key(); key{
+		case tcell.KeyTab:
 			app.SetFocus(textInput)
 			return nil
-		}
-		if event.Key() == tcell.KeyCtrlSpace {
+		case tcell.KeyCtrlSpace:
 			app.SetFocus(textInput)
 			return nil
-		}
-		if event.Key() == tcell.KeyCtrlW {
+		case tcell.KeyCtrlW:
 			app.SetFocus(textView)
 			if curRegions != nil && len(curRegions) > 0 {
 				textView.Highlight(curRegions[len(curRegions)-1])
@@ -318,32 +306,29 @@ func PrintHelp() {
 
 // called when text is entered by the user
 func EnterCommand(key tcell.Key) {
-	if sndTxt == "" {
-		return
-	}
 	if key == tcell.KeyEsc {
 		textInput.SetText("")
 		return
 	}
-	if sndTxt == "/connect" {
+	switch sndTxt{
+	case "":
+		return
+	case "/connect":
 		//command
 		messages.GetConnection()
 		textInput.SetText("")
 		return
-	}
-	if sndTxt == "/load" {
+	case "/load":
 		//command
 		LoadContacts()
 		textInput.SetText("")
 		return
-	}
-	if sndTxt == "/help" {
+	case "/help":
 		//command
 		PrintHelp()
 		textInput.SetText("")
 		return
-	}
-	if sndTxt == "/quit" {
+	case "/quit":
 		//command
 		app.Stop()
 		return
