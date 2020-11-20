@@ -552,7 +552,7 @@ type textHandler struct{}
 
 // HandleError implements the error handler interface for go-whatsapp
 func (t textHandler) HandleError(err error) {
-	// TODO : handle go routine here
+	PrintText("[red]go-whatsapp reported an error:[-]")
 	PrintError(err)
 	return
 }

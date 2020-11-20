@@ -38,11 +38,11 @@ Always fresh, always up to date.
 - Download a release
 - Put the binary in your PATH (optional)
 - Run with `whatscli` (or double-click)
-- Scan the QR code with WhatsApp on your phone (maybe resize shell)
+- Scan the QR code with WhatsApp on your phone (resize shell or change font size to see whole code)
 
 ### Package Managers
 
-Some unofficial ways to install via package managers are supported but the installed version might be out of date.
+Some ways to install via package managers are supported but the installed version might be out of date.
 
 #### MacOS (homebrew)
 
