@@ -3,15 +3,18 @@ package messages
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/rivo/tview"
 	"os"
+	"sync"
 	"time"
+
+	"github.com/rivo/tview"
 
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/normen/whatscli/qrcode"
 )
 
 var textView *tview.TextView
+var connMutex sync.Mutex
 
 // TODO: remove this circular dependeny in favor of a better way
 func SetTextView(tv *tview.TextView) {
@@ -20,6 +23,8 @@ func SetTextView(tv *tview.TextView) {
 
 // gets an existing connection or creates one
 func GetConnection() *whatsapp.Conn {
+	connMutex.Lock()
+	defer connMutex.Unlock()
 	var wac *whatsapp.Conn
 	if connection == nil {
 		wacc, err := whatsapp.NewConn(5 * time.Second)
@@ -44,8 +49,10 @@ func Login() error {
 // LoginWithConnection logs in the user using a provided connection. It ries to see if a session already exists. If not, tries to create a
 // new one using qr scanned on the terminal.
 func LoginWithConnection(wac *whatsapp.Conn) error {
-	if connection != nil && connection.GetConnected() {
-		connection.Disconnect()
+	connMutex.Lock()
+	defer connMutex.Unlock()
+	if wac != nil && wac.GetConnected() {
+		wac.Disconnect()
 	}
 	//load saved session
 	session, err := readSession()
@@ -80,6 +87,8 @@ func LoginWithConnection(wac *whatsapp.Conn) error {
 
 // Logout logs out the user.
 func Logout() error {
+	connMutex.Lock()
+	defer connMutex.Unlock()
 	return removeSession()
 }
 

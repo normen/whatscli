@@ -19,7 +19,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.8"
+var VERSION string = "v0.6.9"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
