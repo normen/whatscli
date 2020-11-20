@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
@@ -21,6 +22,7 @@ type MessageDatabase struct {
 	messagesById  map[string]*whatsapp.TextMessage   // text messages stored by message ID
 	latestMessage map[string]uint64                  // last message from RemoteJid
 	otherMessages map[string]*interface{}            // other non-text messages, stored by ID
+	mutex         sync.Mutex
 }
 
 // initialize the database
@@ -34,6 +36,8 @@ func (db *MessageDatabase) Init() {
 
 // add a text message to the database, stored by RemoteJid
 func (db *MessageDatabase) AddTextMessage(msg *whatsapp.TextMessage) bool {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	//var this = *db
 	var didNew = false
 	var wid = msg.Info.RemoteJid
@@ -56,6 +60,8 @@ func (db *MessageDatabase) AddTextMessage(msg *whatsapp.TextMessage) bool {
 
 // add audio/video/image/doc message, stored by message id
 func (db *MessageDatabase) AddOtherMessage(msg *interface{}) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	var id = ""
 	switch v := (*msg).(type) {
 	default:
@@ -75,6 +81,8 @@ func (db *MessageDatabase) AddOtherMessage(msg *interface{}) {
 
 // get an array of all chat ids
 func (db *MessageDatabase) GetContactIds() []string {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	//var this = *db
 	keys := make([]string, len(db.textMessages))
 	i := 0
@@ -89,6 +97,8 @@ func (db *MessageDatabase) GetContactIds() []string {
 }
 
 func (db *MessageDatabase) GetMessageInfo(id string) string {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	if _, ok := db.otherMessages[id]; ok {
 		return "[yellow]OtherMessage[-]"
 	}
@@ -106,6 +116,8 @@ func (db *MessageDatabase) GetMessageInfo(id string) string {
 
 // get a string containing all messages for a chat by chat id
 func (db *MessageDatabase) GetMessagesString(wid string) (string, []string) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	//var this = *db
 	var out = ""
 	var arr = []string{}
@@ -117,28 +129,10 @@ func (db *MessageDatabase) GetMessagesString(wid string) (string, []string) {
 	return out, arr
 }
 
-// create a formatted string with regions based on message ID from a text message
-func GetTextMessageString(msg *whatsapp.TextMessage) string {
-	out := ""
-	text := tview.Escape(msg.Text)
-	tim := time.Unix(int64(msg.Info.Timestamp), 0)
-	out += "[\""
-	out += msg.Info.Id
-	out += "\"]"
-	if msg.Info.FromMe { //msg from me
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [blue::b]Me: [-::-]" + text
-	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) { // group msg
-		userId := msg.Info.SenderJid
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(userId) + ": [-::-]" + text
-	} else { // message from others
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
-	}
-	out += "[\"\"]"
-	return out
-}
-
 // load data for message specified by message id TODO: support types
 func (db *MessageDatabase) LoadMessageData(wid string) ([]byte, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	if msg, ok := db.otherMessages[wid]; ok {
 		switch v := (*msg).(type) {
 		default:
@@ -157,6 +151,7 @@ func (db *MessageDatabase) LoadMessageData(wid string) ([]byte, error) {
 
 // attempts to download a messages attachments, returns path or error message
 func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error) {
+	db.mutex.Lock()
 	if msg, ok := db.otherMessages[wid]; ok {
 		var fileName string = GetHomeDir() + "Downloads" + string(os.PathSeparator)
 		switch v := (*msg).(type) {
@@ -208,6 +203,26 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 		}
 	}
 	return "", errors.New("No attachments found")
+}
+
+// create a formatted string with regions based on message ID from a text message
+func GetTextMessageString(msg *whatsapp.TextMessage) string {
+	out := ""
+	text := tview.Escape(msg.Text)
+	tim := time.Unix(int64(msg.Info.Timestamp), 0)
+	out += "[\""
+	out += msg.Info.Id
+	out += "\"]"
+	if msg.Info.FromMe { //msg from me
+		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [blue::b]Me: [-::-]" + text
+	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) { // group msg
+		userId := msg.Info.SenderJid
+		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(userId) + ": [-::-]" + text
+	} else { // message from others
+		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
+	}
+	out += "[\"\"]"
+	return out
 }
 
 // helper to save an attachment and open it if specified
