@@ -152,6 +152,7 @@ func (db *MessageDatabase) LoadMessageData(wid string) ([]byte, error) {
 // attempts to download a messages attachments, returns path or error message
 func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error) {
 	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	if msg, ok := db.otherMessages[wid]; ok {
 		var fileName string = GetHomeDir() + "Downloads" + string(os.PathSeparator)
 		switch v := (*msg).(type) {
