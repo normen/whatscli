@@ -22,7 +22,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.7.2"
+var VERSION string = "v0.7.3"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -85,7 +85,7 @@ func main() {
 
 	textInput = tview.NewInputField()
 	textInput.SetBackgroundColor(config.GetColor("background"))
-	textView.SetTextColor(config.GetColor("text"))
+	textInput.SetFieldTextColor(config.GetColor("text"))
 	textInput.SetChangedFunc(func(change string) {
 		sndTxt = change
 	})
