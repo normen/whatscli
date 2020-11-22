@@ -50,11 +50,14 @@ func (db *MessageDatabase) AddTextMessage(msg *whatsapp.TextMessage) bool {
 		db.latestMessage[wid] = msg.Info.Timestamp
 		didNew = true
 	}
-	db.textMessages[wid] = append(db.textMessages[wid], msg)
-	db.messagesById[msg.Info.Id] = msg
-	sort.Slice(db.textMessages[wid], func(i, j int) bool {
-		return db.textMessages[wid][i].Info.Timestamp < db.textMessages[wid][j].Info.Timestamp
-	})
+	//check if message exists, ignore otherwise
+	if _, ok := db.messagesById[msg.Info.Id]; !ok {
+		db.messagesById[msg.Info.Id] = msg
+		db.textMessages[wid] = append(db.textMessages[wid], msg)
+		sort.Slice(db.textMessages[wid], func(i, j int) bool {
+			return db.textMessages[wid][i].Info.Timestamp < db.textMessages[wid][j].Info.Timestamp
+		})
+	}
 	return didNew
 }
 
