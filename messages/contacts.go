@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Rhymen/go-whatsapp"
+	"github.com/normen/whatscli/config"
 )
 
 var contacts map[string]string
@@ -15,9 +16,16 @@ var connection *whatsapp.Conn
 // loads custom contacts from disk
 func LoadContacts() {
 	contacts = make(map[string]string)
-	file, err := os.Open(GetHomeDir() + ".whatscli.contacts")
+	file, err := os.Open(config.GetContactsFilePath())
 	if err != nil {
-		return
+		// load old contacts file, re-save in new location if found
+		file, err = os.Open(GetHomeDir() + ".whatscli.contacts")
+		if err != nil {
+			return
+		} else {
+			os.Remove(GetHomeDir() + ".whatscli.contacts")
+			SaveContacts()
+		}
 	}
 	defer file.Close()
 	decoder := gob.NewDecoder(file)
@@ -29,7 +37,7 @@ func LoadContacts() {
 
 // saves custom contacts to disk
 func SaveContacts() {
-	file, err := os.Create(GetHomeDir() + ".whatscli.contacts")
+	file, err := os.Open(config.GetContactsFilePath())
 	if err != nil {
 		return
 	}

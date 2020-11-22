@@ -23,8 +23,6 @@ This is a WIP and mainly meant for my personal use. Heres some things you might 
 - No incoming message notification / count
 - No proper connection drop handling
 - No uploading of images/video/audio/data
-- Not configurable at all (except through your terminal settings)
-- Leaves its config files in your home folder
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when FaceBook changes stuff in their web app
 
 ## Installation / Usage
@@ -50,8 +48,5 @@ Some ways to install via package managers are supported but the installed versio
 
 #### Arch Linux (AUR)
 
-- `git clone https://aur.archlinux.org/whatscli.git`
-- `cd whatscli`
-- `makepkg -si`
-- `yay -S whatscli`
+- `https://aur.archlinux.org/packages/whatscli/`
 

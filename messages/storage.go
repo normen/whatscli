@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
+	"github.com/normen/whatscli/config"
 	"github.com/rivo/tview"
-	"github.com/skratchdot/open-golang/open"
 )
 
 const GROUPSUFFIX = "@g.us"
@@ -150,11 +150,17 @@ func (db *MessageDatabase) LoadMessageData(wid string) ([]byte, error) {
 }
 
 // attempts to download a messages attachments, returns path or error message
-func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error) {
+func (db *MessageDatabase) DownloadMessage(wid string, preview bool) (string, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	if msg, ok := db.otherMessages[wid]; ok {
-		var fileName string = GetHomeDir() + "Downloads" + string(os.PathSeparator)
+		var fileName string = ""
+		if preview {
+			fileName += config.GetSetting("download_path")
+		} else {
+			fileName += config.GetSetting("preview_path")
+		}
+		fileName += string(os.PathSeparator)
 		switch v := (*msg).(type) {
 		default:
 		case whatsapp.ImageMessage:
@@ -163,7 +169,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 				return fileName, err
 			} else if os.IsNotExist(err) {
 				if data, err := v.Download(); err == nil {
-					return saveAttachment(data, fileName, open)
+					return saveAttachment(data, fileName)
 				} else {
 					return fileName, err
 				}
@@ -174,7 +180,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 				return fileName, err
 			} else if os.IsNotExist(err) {
 				if data, err := v.Download(); err == nil {
-					return saveAttachment(data, fileName, open)
+					return saveAttachment(data, fileName)
 				} else {
 					return fileName, err
 				}
@@ -185,7 +191,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 				return fileName, err
 			} else if os.IsNotExist(err) {
 				if data, err := v.Download(); err == nil {
-					return saveAttachment(data, fileName, open)
+					return saveAttachment(data, fileName)
 				} else {
 					return fileName, err
 				}
@@ -196,7 +202,7 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 				return fileName, err
 			} else if os.IsNotExist(err) {
 				if data, err := v.Download(); err == nil {
-					return saveAttachment(data, fileName, open)
+					return saveAttachment(data, fileName)
 				} else {
 					return fileName, err
 				}
@@ -208,33 +214,29 @@ func (db *MessageDatabase) DownloadMessage(wid string, open bool) (string, error
 
 // create a formatted string with regions based on message ID from a text message
 func GetTextMessageString(msg *whatsapp.TextMessage) string {
+	colorMe := config.GetColorName("chat_me")
+	colorContact := config.GetColorName("chat_contact")
 	out := ""
 	text := tview.Escape(msg.Text)
 	tim := time.Unix(int64(msg.Info.Timestamp), 0)
+	time := tim.Format("02-01-06 15:04:05")
 	out += "[\""
 	out += msg.Info.Id
 	out += "\"]"
 	if msg.Info.FromMe { //msg from me
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [blue::b]Me: [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorMe + "::b]Me: [-::-]" + text
 	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) { // group msg
 		userId := msg.Info.SenderJid
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(userId) + ": [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorContact + "::b]" + GetIdShort(userId) + ": [-::-]" + text
 	} else { // message from others
-		out += "[-::d](" + tim.Format("02-01-06 15:04:05") + ") [green::b]" + GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorContact + "::b]" + GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
 	}
 	out += "[\"\"]"
 	return out
 }
 
 // helper to save an attachment and open it if specified
-func saveAttachment(data []byte, path string, openIt bool) (string, error) {
+func saveAttachment(data []byte, path string) (string, error) {
 	err := ioutil.WriteFile(path, data, 0644)
-	if err == nil {
-		if openIt {
-			open.Run(path)
-		}
-	} else {
-		return path, err
-	}
-	return path, nil
+	return path, err
 }

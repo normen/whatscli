@@ -10,8 +10,11 @@ import (
 
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/gdamore/tcell/v2"
+	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/messages"
 	"github.com/rivo/tview"
+	"github.com/skratchdot/open-golang/open"
+	"gitlab.com/tslocum/cbind"
 )
 
 type waMsg struct {
@@ -19,7 +22,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.6.10"
+var VERSION string = "v0.7.0"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -36,26 +39,31 @@ var topBar *tview.TextView
 
 //var infoBar *tview.TextView
 var msgStore messages.MessageDatabase
+var keysApp *cbind.Configuration
 
 var contactRoot *tview.TreeNode
 var handler textHandler
 var app *tview.Application
 
 func main() {
+	config.InitConfig()
 	msgStore = messages.MessageDatabase{}
 	msgStore.Init()
 	messages.LoadContacts()
 	app = tview.NewApplication()
+
+	sideBarWidth := config.GetIntSetting("ui", "contact_sidebar_width")
 	gridLayout := tview.NewGrid()
 	gridLayout.SetRows(1, 0, 1)
-	gridLayout.SetColumns(30, 0, 30)
+	gridLayout.SetColumns(sideBarWidth, 0, sideBarWidth)
 	gridLayout.SetBorders(true)
-	gridLayout.SetBackgroundColor(tcell.ColorBlack)
+	gridLayout.SetBackgroundColor(config.GetColor("background"))
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetScrollable(false)
 	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type /help for help")
+	topBar.SetBackgroundColor(config.GetColor("background"))
 
 	//infoBar = tview.NewTextView()
 	//infoBar.SetDynamicColors(true)
@@ -68,142 +76,21 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
-
-	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlE {
-			//TODO: Boilerplate
-			textView.Highlight("")
-			textView.ScrollToEnd()
-			app.SetFocus(treeView)
-			return nil
-		}
-		if event.Key() == tcell.KeyCtrlSpace {
-			textView.Highlight("")
-			textView.ScrollToEnd()
-			app.SetFocus(textInput)
-			return nil
-		}
-		if event.Key() == tcell.KeyTab {
-			textView.Highlight("")
-			textView.ScrollToEnd()
-			app.SetFocus(textInput)
-			return nil
-		}
-		if event.Key() == tcell.KeyEsc {
-			textView.Highlight("")
-			textView.ScrollToEnd()
-			app.SetFocus(textInput)
-			return nil
-		}
-		if curRegions == nil || len(curRegions) == 0 {
-			return event
-		}
-		if event.Key() == tcell.KeyDown || event.Rune() == 'j' {
-			hls := textView.GetHighlights()
-			if len(hls) > 0 {
-				newId := GetOffsetMsgId(hls[0], 1)
-				if newId != "" {
-					textView.Highlight(newId)
-				}
-			} else {
-				textView.Highlight(curRegions[0])
-			}
-			textView.ScrollToHighlight()
-			return nil
-		}
-		if event.Key() == tcell.KeyUp || event.Rune() == 'k' {
-			hls := textView.GetHighlights()
-			if len(hls) > 0 {
-				newId := GetOffsetMsgId(hls[0], -1)
-				if newId != "" {
-					textView.Highlight(newId)
-				}
-			} else {
-				textView.Highlight(curRegions[len(curRegions)-1])
-			}
-			textView.ScrollToHighlight()
-			return nil
-		}
-		if event.Rune() == 'G' {
-			textView.Highlight(curRegions[len(curRegions)-1])
-			textView.ScrollToHighlight()
-			return nil
-		}
-		if event.Rune() == 'g' {
-			textView.Highlight(curRegions[0])
-			textView.ScrollToHighlight()
-			return nil
-		}
-		if event.Rune() == 'd' {
-			hls := textView.GetHighlights()
-			if len(hls) > 0 {
-				DownloadMessageId(hls[0], false)
-				textView.Highlight("")
-				textView.ScrollToEnd()
-				app.SetFocus(textInput)
-			}
-			return nil
-		}
-		if event.Rune() == 'o' {
-			hls := textView.GetHighlights()
-			if len(hls) > 0 {
-				DownloadMessageId(hls[0], true)
-				textView.Highlight("")
-				textView.ScrollToEnd()
-				app.SetFocus(textInput)
-			}
-			return nil
-		}
-		if event.Rune() == 'i' {
-			hls := textView.GetHighlights()
-			if len(hls) > 0 {
-				fmt.Fprintln(textView, msgStore.GetMessageInfo(hls[0]))
-				textView.Highlight("")
-				textView.ScrollToEnd()
-				app.SetFocus(textInput)
-			}
-			return nil
-		}
-		if event.Rune() == 's' {
-			hls := textView.GetHighlights()
-			if len(hls) > 0 {
-				go PrintImage(hls[0])
-				textView.Highlight("")
-				textView.ScrollToEnd()
-				app.SetFocus(textInput)
-			}
-			return nil
-		}
-		return event
-	})
+	textView.SetBackgroundColor(config.GetColor("background"))
+	textView.SetTextColor(config.GetColor("text"))
 
 	// TODO: add better way
 	messages.SetTextView(textView)
 	PrintHelp()
 
-	//textView.SetBorder(true)
-
 	textInput = tview.NewInputField()
+	textInput.SetBackgroundColor(config.GetColor("background"))
+	textView.SetTextColor(config.GetColor("text"))
 	textInput.SetChangedFunc(func(change string) {
 		sndTxt = change
 	})
 	textInput.SetDoneFunc(EnterCommand)
 	textInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlE {
-			app.SetFocus(treeView)
-			return nil
-		}
-		if event.Key() == tcell.KeyCtrlW {
-			app.SetFocus(textView)
-			if curRegions != nil && len(curRegions) > 0 {
-				textView.Highlight(curRegions[len(curRegions)-1])
-			}
-			return nil
-		}
-		if event.Key() == tcell.KeyTab {
-			app.SetFocus(treeView)
-			return nil
-		}
 		if event.Key() == tcell.KeyDown {
 			offset, _ := textView.GetScrollOffset()
 			offset += 1
@@ -245,6 +132,7 @@ func main() {
 			PrintError(err)
 		}
 	}()
+	LoadShortcuts()
 	app.Run()
 }
 
@@ -252,10 +140,11 @@ func main() {
 func MakeTree() *tview.TreeView {
 	rootDir := "Contacts"
 	contactRoot = tview.NewTreeNode(rootDir).
-		SetColor(tcell.ColorYellow)
+		SetColor(config.GetColor("list_header"))
 	treeView = tview.NewTreeView().
 		SetRoot(contactRoot).
 		SetCurrentNode(contactRoot)
+	treeView.SetBackgroundColor(config.GetColor("background"))
 
 	// If a contact was selected, open it.
 	treeView.SetChangedFunc(func(node *tview.TreeNode) {
@@ -294,26 +183,232 @@ func MakeTree() *tview.TreeView {
 	return treeView
 }
 
+func handleFocusMessage(ev *tcell.EventKey) *tcell.EventKey {
+	if !textView.HasFocus() {
+		app.SetFocus(textView)
+		if curRegions != nil && len(curRegions) > 0 {
+			textView.Highlight(curRegions[len(curRegions)-1])
+		}
+	}
+	return nil
+}
+
+func handleFocusInput(ev *tcell.EventKey) *tcell.EventKey {
+	ResetMsgSelection()
+	if !textInput.HasFocus() {
+		app.SetFocus(textInput)
+	}
+	return nil
+}
+
+func handleFocusContacts(ev *tcell.EventKey) *tcell.EventKey {
+	ResetMsgSelection()
+	if !treeView.HasFocus() {
+		app.SetFocus(treeView)
+	}
+	return nil
+}
+
+func handleSwitchPanels(ev *tcell.EventKey) *tcell.EventKey {
+	ResetMsgSelection()
+	if !textInput.HasFocus() {
+		app.SetFocus(textInput)
+	} else {
+		app.SetFocus(treeView)
+	}
+	return nil
+}
+
+func handleConnect(ev *tcell.EventKey) *tcell.EventKey {
+	msgStore.Init()
+	messages.Login()
+	return nil
+}
+
+func handleQuit(ev *tcell.EventKey) *tcell.EventKey {
+	app.Stop()
+	return nil
+}
+
+func handleHelp(ev *tcell.EventKey) *tcell.EventKey {
+	PrintHelp()
+	return nil
+}
+
+func handleDownload(ev *tcell.EventKey) *tcell.EventKey {
+	hls := textView.GetHighlights()
+	if len(hls) > 0 {
+		go DownloadMessageId(hls[0], false)
+		ResetMsgSelection()
+		app.SetFocus(textInput)
+	}
+	return nil
+}
+
+func handleOpen(ev *tcell.EventKey) *tcell.EventKey {
+	hls := textView.GetHighlights()
+	if len(hls) > 0 {
+		go DownloadMessageId(hls[0], true)
+		ResetMsgSelection()
+		app.SetFocus(textInput)
+	}
+	return nil
+}
+
+func handleShow(ev *tcell.EventKey) *tcell.EventKey {
+	hls := textView.GetHighlights()
+	if len(hls) > 0 {
+		go PrintImage(hls[0])
+		ResetMsgSelection()
+		app.SetFocus(textInput)
+	}
+	return nil
+}
+
+func handleInfo(ev *tcell.EventKey) *tcell.EventKey {
+	hls := textView.GetHighlights()
+	if len(hls) > 0 {
+		PrintText(msgStore.GetMessageInfo(hls[0]))
+		ResetMsgSelection()
+		app.SetFocus(textInput)
+	}
+	return nil
+}
+
+func handleMessagesUp(ev *tcell.EventKey) *tcell.EventKey {
+	if curRegions == nil || len(curRegions) == 0 {
+		return nil
+	}
+	hls := textView.GetHighlights()
+	if len(hls) > 0 {
+		newId := GetOffsetMsgId(hls[0], -1)
+		if newId != "" {
+			textView.Highlight(newId)
+		}
+	} else {
+		textView.Highlight(curRegions[len(curRegions)-1])
+	}
+	textView.ScrollToHighlight()
+	return nil
+}
+
+func handleMessagesDown(ev *tcell.EventKey) *tcell.EventKey {
+	if curRegions == nil || len(curRegions) == 0 {
+		return nil
+	}
+	hls := textView.GetHighlights()
+	if len(hls) > 0 {
+		newId := GetOffsetMsgId(hls[0], 1)
+		if newId != "" {
+			textView.Highlight(newId)
+		}
+	} else {
+		textView.Highlight(curRegions[0])
+	}
+	textView.ScrollToHighlight()
+	return nil
+}
+
+func handleMessagesLast(ev *tcell.EventKey) *tcell.EventKey {
+	if curRegions == nil || len(curRegions) == 0 {
+		return nil
+	}
+	textView.Highlight(curRegions[len(curRegions)-1])
+	textView.ScrollToHighlight()
+	return nil
+}
+
+func handleMessagesFirst(ev *tcell.EventKey) *tcell.EventKey {
+	if curRegions == nil || len(curRegions) == 0 {
+		return nil
+	}
+	textView.Highlight(curRegions[0])
+	textView.ScrollToHighlight()
+	return nil
+}
+
+func handleExitMessages(ev *tcell.EventKey) *tcell.EventKey {
+	if curRegions == nil || len(curRegions) == 0 {
+		return nil
+	}
+	ResetMsgSelection()
+	app.SetFocus(textInput)
+	return nil
+}
+
+func LoadShortcuts() {
+	keysApp = cbind.NewConfiguration()
+	if err := keysApp.Set(config.GetKey("focus_messages"), handleFocusMessage); err != nil {
+		PrintErrorMsg("focus_messages:", err)
+	}
+	if err := keysApp.Set(config.GetKey("focus_input"), handleFocusInput); err != nil {
+		PrintErrorMsg("focus_input:", err)
+	}
+	if err := keysApp.Set(config.GetKey("focus_contacts"), handleFocusContacts); err != nil {
+		PrintErrorMsg("focus_contacts:", err)
+	}
+	if err := keysApp.Set(config.GetKey("switch_panels"), handleSwitchPanels); err != nil {
+		PrintErrorMsg("switch_panels:", err)
+	}
+	if err := keysApp.Set(config.GetKey("command_connect"), handleConnect); err != nil {
+		PrintErrorMsg("command_connect:", err)
+	}
+	if err := keysApp.Set(config.GetKey("command_quit"), handleQuit); err != nil {
+		PrintErrorMsg("command_quit:", err)
+	}
+	if err := keysApp.Set(config.GetKey("command_help"), handleHelp); err != nil {
+		PrintErrorMsg("command_help:", err)
+	}
+	app.SetInputCapture(keysApp.Capture)
+	keysMessages := cbind.NewConfiguration()
+	if err := keysMessages.Set(config.GetKey("message_download"), handleDownload); err != nil {
+		PrintErrorMsg("message_download:", err)
+	}
+	if err := keysMessages.Set(config.GetKey("message_open"), handleOpen); err != nil {
+		PrintErrorMsg("message_open:", err)
+	}
+	if err := keysMessages.Set(config.GetKey("message_show"), handleShow); err != nil {
+		PrintErrorMsg("message_show:", err)
+	}
+	if err := keysMessages.Set(config.GetKey("message_info"), handleInfo); err != nil {
+		PrintErrorMsg("message_info:", err)
+	}
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyEscape, handleExitMessages)
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyUp, handleMessagesUp)
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyDown, handleMessagesDown)
+	keysMessages.SetRune(tcell.ModNone, 'k', handleMessagesUp)
+	keysMessages.SetRune(tcell.ModNone, 'j', handleMessagesDown)
+	keysMessages.SetRune(tcell.ModNone, 'g', handleMessagesFirst)
+	keysMessages.SetRune(tcell.ModNone, 'G', handleMessagesLast)
+	textView.SetInputCapture(keysMessages.Capture)
+}
+
 // prints help to chat view
 func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"[-]")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
-	fmt.Fprintln(textView, "<Tab> = switch input/contacts")
-	fmt.Fprintln(textView, "<Up/Dn> = scroll history/contacts")
-	fmt.Fprintln(textView, "<Ctrl-W> = focus chat window")
+	fmt.Fprintln(textView, "[::b] Up/Down[::-] = scroll history/contacts")
+	fmt.Fprintln(textView, "[::b]", config.GetKey("switch_panels"), "[::-] = switch input/contacts")
+	fmt.Fprintln(textView, "[::b]", config.GetKey("focus_messages"), "[::-] = focus message panel")
+	fmt.Fprintln(textView, "[::b]", config.GetKey("focus_contacts"), "[::-] = focus contacts panel")
+	fmt.Fprintln(textView, "[::b]", config.GetKey("focus_input"), "[::-] = focus input")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Chat window focused:[-::-]")
-	fmt.Fprintln(textView, "<Up/Down> = select message")
-	fmt.Fprintln(textView, "<d> = download attachment to $HOME/Downloads")
-	fmt.Fprintln(textView, "<o> = download & open attachment")
-	fmt.Fprintln(textView, "<s> = download & show image in chat using jp2a command")
+	fmt.Fprintln(textView, "[::b] Up/Down[::-] = select message")
+	fmt.Fprintln(textView, "[::b]", config.GetKey("message_download"), "[::-] = download attachment -> ", config.GetSetting("download_path"))
+	fmt.Fprintln(textView, "[::b]", config.GetKey("message_open"), "[::-] = download & open attachment -> ", config.GetSetting("preview_path"))
+	fmt.Fprintln(textView, "[::b]", config.GetKey("message_show"), "[::-] = download & show image using jp2a -> ", config.GetSetting("preview_path"))
+	fmt.Fprintln(textView, "[::b]", config.GetKey("message_info"), "[::-] = info about message")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
-	fmt.Fprintln(textView, "/connect = (re)connect in case the connection dropped")
-	fmt.Fprintln(textView, "/quit = exit app")
-	fmt.Fprintln(textView, "/help = show this help")
+	fmt.Fprintln(textView, "[::b] /connect[::-] = (re)connect in case the connection dropped ->[::b]", config.GetKey("command_connect"), "[::-]")
+	fmt.Fprintln(textView, "[::b] /help[::-] = show this help ->[::b]", config.GetKey("command_help"), "[::-]")
+	fmt.Fprintln(textView, "[::b] /quit[::-] = exit app ->[::b]", config.GetKey("command_quit"), "[::-]")
+	fmt.Fprintln(textView, "[::b] /disconnect[::-] = close the connection")
+	fmt.Fprintln(textView, "[::b] /logout[::-] = remove login data from computer (stays connected until app closes)")
 	fmt.Fprintln(textView, "")
+	fmt.Fprintln(textView, "Config file in \n-> ", config.GetConfigFilePath())
 }
 
 // called when text is entered by the user
@@ -332,6 +427,17 @@ func EnterCommand(key tcell.Key) {
 		textInput.SetText("")
 		return
 	}
+	if sndTxt == "/disconnect" {
+		PrintError(messages.Disconnect())
+		textInput.SetText("")
+		return
+	}
+	if sndTxt == "/logout" {
+		//command
+		PrintError(messages.Logout())
+		textInput.SetText("")
+		return
+	}
 	if sndTxt == "/load" {
 		//command
 		LoadContacts()
@@ -347,6 +453,12 @@ func EnterCommand(key tcell.Key) {
 	if sndTxt == "/quit" {
 		//command
 		app.Stop()
+		return
+	}
+	if sndTxt == "/keys" {
+		//command
+		//config.PrintKeys(textView)
+		textInput.SetText("")
 		return
 	}
 	if strings.Index(sndTxt, "/addname ") == 0 {
@@ -407,6 +519,14 @@ func GetOffsetMsgId(curId string, offset int) string {
 	}
 }
 
+// resets the selection in the textView and scrolls it down
+func ResetMsgSelection() {
+	if len(textView.GetHighlights()) > 0 {
+		textView.Highlight("")
+	}
+	textView.ScrollToEnd()
+}
+
 // prints a text message to the TextView
 func PrintTextMessage(msg whatsapp.TextMessage) {
 	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
@@ -419,7 +539,18 @@ func PrintText(txt string) {
 
 // prints an error to the TextView
 func PrintError(err error) {
+	if err == nil {
+		return
+	}
 	fmt.Fprintln(textView, "[red]", err.Error(), "[-]")
+}
+
+// prints an error to the TextView
+func PrintErrorMsg(text string, err error) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintln(textView, "[red]", text, err.Error(), "[-]")
 }
 
 // prints an image attachment to the TextView (by message id)
@@ -427,7 +558,7 @@ func PrintImage(id string) {
 	var err error
 	var path string
 	PrintText("[::d]loading..[::-]")
-	if path, err = msgStore.DownloadMessage(id, false); err == nil {
+	if path, err = msgStore.DownloadMessage(id, true); err == nil {
 		cmd := exec.Command("jp2a", "--color", path)
 		var stdout io.ReadCloser
 		if stdout, err = cmd.StdoutPipe(); err == nil {
@@ -441,16 +572,17 @@ func PrintImage(id string) {
 	PrintError(err)
 }
 
-// initiates a download of a specific message attachment in a new go routine
-func DownloadMessageId(id string, open bool) {
+// downloads a specific message attachment
+func DownloadMessageId(id string, openIt bool) {
 	PrintText("[::d]loading..[::-]")
-	go func() {
-		if result, err := msgStore.DownloadMessage(id, open); err == nil {
-			fmt.Fprintln(textView, "[::d]Downloaded as [yellow]", result, "[-::-]")
-		} else {
-			PrintError(err)
+	if result, err := msgStore.DownloadMessage(id, openIt); err == nil {
+		PrintText("[::d]Downloaded as [yellow]" + result + "[-::-]")
+		if openIt {
+			open.Run(result)
 		}
-	}()
+	} else {
+		PrintError(err)
+	}
 }
 
 // notifies about a new message if its recent
@@ -473,9 +605,9 @@ func LoadContacts() {
 			SetReference(element).
 			SetSelectable(true)
 		if strings.Count(element, messages.CONTACTSUFFIX) > 0 {
-			node.SetColor(tcell.ColorGreen)
+			node.SetColor(config.GetColor("list_contact"))
 		} else {
-			node.SetColor(tcell.ColorBlue)
+			node.SetColor(config.GetColor("list_group"))
 		}
 		contactRoot.AddChild(node)
 		if element == currentReceiver {

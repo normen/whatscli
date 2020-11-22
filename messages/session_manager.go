@@ -10,6 +10,7 @@ import (
 	"github.com/rivo/tview"
 
 	"github.com/Rhymen/go-whatsapp"
+	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/qrcode"
 )
 
@@ -85,6 +86,15 @@ func LoginWithConnection(wac *whatsapp.Conn) error {
 	return nil
 }
 
+func Disconnect() error {
+	wac := GetConnection()
+	if wac != nil && wac.GetConnected() {
+		_, err := wac.Disconnect()
+		return err
+	}
+	return nil
+}
+
 // Logout logs out the user.
 func Logout() error {
 	connMutex.Lock()
@@ -95,9 +105,15 @@ func Logout() error {
 // reads the session file from disk
 func readSession() (whatsapp.Session, error) {
 	session := whatsapp.Session{}
-	file, err := os.Open(GetHomeDir() + ".whatscli.session")
+	file, err := os.Open(config.GetSessionFilePath())
 	if err != nil {
-		return session, err
+		// load old session file, delete if found
+		file, err = os.Open(GetHomeDir() + ".whatscli.session")
+		if err != nil {
+			return session, err
+		} else {
+			os.Remove(GetHomeDir() + ".whatscli.session")
+		}
 	}
 	defer file.Close()
 	decoder := gob.NewDecoder(file)
@@ -110,7 +126,7 @@ func readSession() (whatsapp.Session, error) {
 
 // saves the session file to disk
 func writeSession(session whatsapp.Session) error {
-	file, err := os.Create(GetHomeDir() + ".whatscli.session")
+	file, err := os.Create(config.GetSessionFilePath())
 	if err != nil {
 		return err
 	}
@@ -125,5 +141,5 @@ func writeSession(session whatsapp.Session) error {
 
 // deletes the session file from disk
 func removeSession() error {
-	return os.Remove(GetHomeDir() + ".whatscli.session")
+	return os.Remove(config.GetSessionFilePath())
 }
