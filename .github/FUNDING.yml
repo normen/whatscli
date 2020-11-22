@@ -2,8 +2,8 @@
 
 github: # Replace with up to 4 GitHub Sponsors-enabled usernames e.g., [user1, user2]
 patreon: normen
-open_collective: normen
-ko_fi: # Replace with a single Ko-fi username
+open_collective: #normen
+ko_fi: normen
 tidelift: # Replace with a single Tidelift platform-name/package-name e.g., npm/babel
 community_bridge: # Replace with a single Community Bridge project-name e.g., cloud-foundry
 liberapay: # Replace with a single Liberapay username
