@@ -87,7 +87,7 @@ func GetContactsFilePath() string {
 	if sessionFilePath, err := xdg.ConfigFile("whatscli/contacts"); err == nil {
 		return sessionFilePath
 	}
-	return GetHomeDir() + ".whatscli.session"
+	return GetHomeDir() + ".whatscli.contacts"
 }
 
 func GetKey(name string) string {
