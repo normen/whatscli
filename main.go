@@ -22,7 +22,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.7.3"
+var VERSION string = "v0.7.4"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -58,6 +58,7 @@ func main() {
 	gridLayout.SetColumns(sideBarWidth, 0, sideBarWidth)
 	gridLayout.SetBorders(true)
 	gridLayout.SetBackgroundColor(config.GetColor("background"))
+	gridLayout.SetBordersColor(config.GetColor("borders"))
 
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
@@ -85,7 +86,8 @@ func main() {
 
 	textInput = tview.NewInputField()
 	textInput.SetBackgroundColor(config.GetColor("background"))
-	textInput.SetFieldTextColor(config.GetColor("text"))
+	textInput.SetFieldBackgroundColor(config.GetColor("input_background"))
+	textInput.SetFieldTextColor(config.GetColor("input_text"))
 	textInput.SetChangedFunc(func(change string) {
 		sndTxt = change
 	})

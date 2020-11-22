@@ -20,6 +20,20 @@ func InitConfig() {
 	if configFilePath, err = xdg.ConfigFile("whatscli/whatscli.config"); err == nil {
 		if cfg, err = ini.Load(configFilePath); err == nil {
 			//TODO: check config for new parameters
+			if section, err := cfg.GetSection("colors"); err == nil {
+				if _, err := section.GetKey("borders"); err != nil {
+					section.NewKey("borders", "white")
+					err = cfg.SaveTo(configFilePath)
+				}
+				if _, err := section.GetKey("input_background"); err != nil {
+					section.NewKey("input_background", "blue")
+					err = cfg.SaveTo(configFilePath)
+				}
+				if _, err := section.GetKey("input_text"); err != nil {
+					section.NewKey("input_text", "white")
+					err = cfg.SaveTo(configFilePath)
+				}
+			}
 		} else {
 			cfg = ini.Empty()
 			cfg.NewSection("general")
@@ -47,6 +61,9 @@ func InitConfig() {
 			cfg.Section("colors").NewKey("list_group", "blue")
 			cfg.Section("colors").NewKey("chat_contact", "green")
 			cfg.Section("colors").NewKey("chat_me", "blue")
+			cfg.Section("colors").NewKey("borders", "white")
+			cfg.Section("colors").NewKey("input_background", "blue")
+			cfg.Section("colors").NewKey("input_text", "white")
 			err = cfg.SaveTo(configFilePath)
 		}
 	}
