@@ -22,7 +22,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.7.1"
+var VERSION string = "v0.7.2"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -161,24 +161,6 @@ func MakeTree() *tview.TreeView {
 			// Collapse if visible, expand if collapsed.
 			node.SetExpanded(!node.IsExpanded())
 		}
-	})
-	treeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyTab {
-			app.SetFocus(textInput)
-			return nil
-		}
-		if event.Key() == tcell.KeyCtrlSpace {
-			app.SetFocus(textInput)
-			return nil
-		}
-		if event.Key() == tcell.KeyCtrlW {
-			app.SetFocus(textView)
-			if curRegions != nil && len(curRegions) > 0 {
-				textView.Highlight(curRegions[len(curRegions)-1])
-			}
-			return nil
-		}
-		return event
 	})
 	return treeView
 }
