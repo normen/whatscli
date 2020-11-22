@@ -22,7 +22,7 @@ type waMsg struct {
 	Text string
 }
 
-var VERSION string = "v0.7.0"
+var VERSION string = "v0.7.1"
 
 var sendChannel chan waMsg
 var textChannel chan whatsapp.TextMessage
@@ -226,6 +226,7 @@ func handleConnect(ev *tcell.EventKey) *tcell.EventKey {
 }
 
 func handleQuit(ev *tcell.EventKey) *tcell.EventKey {
+	messages.Disconnect()
 	app.Stop()
 	return nil
 }
@@ -394,7 +395,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.GetKey("focus_contacts"), "[::-] = focus contacts panel")
 	fmt.Fprintln(textView, "[::b]", config.GetKey("focus_input"), "[::-] = focus input")
 	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "[-::-]Chat window focused:[-::-]")
+	fmt.Fprintln(textView, "[-::-]Message panel focused:[-::-]")
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = select message")
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_download"), "[::-] = download attachment -> ", config.GetSetting("download_path"))
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_open"), "[::-] = download & open attachment -> ", config.GetSetting("preview_path"))
@@ -452,6 +453,7 @@ func EnterCommand(key tcell.Key) {
 	}
 	if sndTxt == "/quit" {
 		//command
+		messages.Disconnect()
 		app.Stop()
 		return
 	}
