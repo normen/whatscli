@@ -156,23 +156,25 @@ func (sm *SessionManager) execCommand(command Command) {
 	//FullChatHistory(currentReceiver, 20, 100000, handler)
 	//messages.GetConnection().LoadFullChatHistory(currentReceiver, 20, 100000, handler)
 	case "login":
-		//command
+		sm.login()
+	case "connect":
 		sm.login()
 	case "disconnect":
-		//TODO: output error
 		sm.uiHandler.PrintError(sm.disconnect())
 	case "logout":
-		//command
-		//TODO: output error
 		sm.uiHandler.PrintError(sm.logout())
-	case "send_message":
+	case "send":
 		sm.sendText(command.Params[0], command.Params[1])
-	case "select_contact":
+	case "select":
 		sm.setCurrentReceiver(command.Params[0])
 	case "info":
 		sm.uiHandler.PrintText(sm.db.GetMessageInfo(command.Params[0]))
 	case "download":
-		sm.downloadMessage(command.Params[0], false)
+		if path, err := sm.downloadMessage(command.Params[0], false); err != nil {
+			sm.uiHandler.PrintError(err)
+		} else {
+			sm.uiHandler.PrintText("[::d] -> " + path + "[::-]")
+		}
 	case "open":
 		if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
 			sm.uiHandler.OpenFile(path)

@@ -363,6 +363,7 @@ func PrintHelp() {
 }
 
 // called when text is entered by the user
+// TODO: parse and map commands automatically
 func EnterCommand(key tcell.Key) {
 	if sndTxt == "" {
 		return
@@ -407,7 +408,7 @@ func EnterCommand(key tcell.Key) {
 	}
 	// send message
 	msg := messages.Command{
-		Name:   "send_message",
+		Name:   "send",
 		Params: []string{currentReceiver, sndTxt},
 	}
 	sessionManager.CommandChannel <- msg
@@ -494,7 +495,7 @@ func SetDisplayedContact(wid string) {
 	currentReceiver = wid
 	textView.Clear()
 	textView.SetTitle(messages.GetIdName(wid))
-	sessionManager.CommandChannel <- messages.Command{"select_contact", []string{currentReceiver}}
+	sessionManager.CommandChannel <- messages.Command{"select", []string{currentReceiver}}
 }
 
 type UiHandler struct{}
