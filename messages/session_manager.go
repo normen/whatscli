@@ -18,23 +18,21 @@ import (
 )
 
 // TODO: move message styling and ordering into UI, don't use strings
+// move these funcs/interface to channels
 type UiMessageHandler interface {
 	NewMessage(string, string)
 	NewScreen(string, []string)
 	SetContacts([]string)
 	PrintError(error)
 	PrintText(string)
+	PrintFile(string)
+	OpenFile(string)
 	GetWriter() io.Writer
 }
 
 type Command struct {
 	Name   string
 	Params []string
-}
-
-type SendMsg struct {
-	Wid  string
-	Text string
 }
 
 const GROUPSUFFIX = "@g.us"
@@ -59,7 +57,7 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.OtherChannel = make(chan interface{}, 10)
 }
 
-func (sm *SessionManager) SetCurrentReceiver(id string) {
+func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
 	screen, ids := sm.db.GetMessagesString(id)
 	sm.uiHandler.NewScreen(screen, ids)
@@ -82,15 +80,15 @@ func (sm *SessionManager) GetConnection() *whatsapp.Conn {
 	return wac
 }
 
-// Login logs in the user. It ries to see if a session already exists. If not, tries to create a
+// login logs in the user. It ries to see if a session already exists. If not, tries to create a
 // new one using qr scanned on the terminal.
-func (sm *SessionManager) Login() error {
-	return sm.LoginWithConnection(sm.GetConnection())
+func (sm *SessionManager) login() error {
+	return sm.loginWithConnection(sm.GetConnection())
 }
 
-// LoginWithConnection logs in the user using a provided connection. It ries to see if a session already exists. If not, tries to create a
+// loginWithConnection logs in the user using a provided connection. It ries to see if a session already exists. If not, tries to create a
 // new one using qr scanned on the terminal.
-func (sm *SessionManager) LoginWithConnection(wac *whatsapp.Conn) error {
+func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
 	if wac != nil && wac.GetConnected() {
 		wac.Disconnect()
 	}
@@ -125,7 +123,7 @@ func (sm *SessionManager) LoginWithConnection(wac *whatsapp.Conn) error {
 	return nil
 }
 
-func (sm *SessionManager) Disconnect() error {
+func (sm *SessionManager) disconnect() error {
 	wac := sm.GetConnection()
 	if wac != nil && wac.GetConnected() {
 		_, err := wac.Disconnect()
@@ -134,12 +132,12 @@ func (sm *SessionManager) Disconnect() error {
 	return nil
 }
 
-// Logout logs out the user.
-func (ub *SessionManager) Logout() error {
+// logout logs out the user.
+func (ub *SessionManager) logout() error {
 	return removeSession()
 }
 
-func (sm *SessionManager) ExecCommand(command Command) {
+func (sm *SessionManager) execCommand(command Command) {
 	sndTxt := command.Name
 	switch sndTxt {
 	default:
@@ -159,23 +157,39 @@ func (sm *SessionManager) ExecCommand(command Command) {
 	//messages.GetConnection().LoadFullChatHistory(currentReceiver, 20, 100000, handler)
 	case "login":
 		//command
-		sm.Login()
+		sm.login()
 	case "disconnect":
 		//TODO: output error
-		sm.uiHandler.PrintError(sm.Disconnect())
+		sm.uiHandler.PrintError(sm.disconnect())
 	case "logout":
 		//command
 		//TODO: output error
-		sm.uiHandler.PrintError(sm.Logout())
+		sm.uiHandler.PrintError(sm.logout())
 	case "send_message":
-		sm.SendText(command.Params[0], command.Params[1])
+		sm.sendText(command.Params[0], command.Params[1])
 	case "select_contact":
-		sm.SetCurrentReceiver(command.Params[0])
+		sm.setCurrentReceiver(command.Params[0])
+	case "info":
+		sm.uiHandler.PrintText(sm.db.GetMessageInfo(command.Params[0]))
+	case "download":
+		sm.downloadMessage(command.Params[0], false)
+	case "open":
+		if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
+			sm.uiHandler.OpenFile(path)
+		} else {
+			sm.uiHandler.PrintError(err)
+		}
+	case "show":
+		if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
+			sm.uiHandler.PrintFile(path)
+		} else {
+			sm.uiHandler.PrintError(err)
+		}
 	}
 }
 
 // load data for message specified by message id TODO: support types
-func (sm *SessionManager) LoadMessageData(wid string) ([]byte, error) {
+func (sm *SessionManager) loadMessageData(wid string) ([]byte, error) {
 	if msg, ok := sm.db.otherMessages[wid]; ok {
 		switch v := (*msg).(type) {
 		default:
@@ -193,7 +207,7 @@ func (sm *SessionManager) LoadMessageData(wid string) ([]byte, error) {
 }
 
 // attempts to download a messages attachments, returns path or error message
-func (sm *SessionManager) DownloadMessage(wid string, preview bool) (string, error) {
+func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, error) {
 	if msg, ok := sm.db.otherMessages[wid]; ok {
 		var fileName string = ""
 		if preview {
@@ -253,35 +267,11 @@ func (sm *SessionManager) DownloadMessage(wid string, preview bool) (string, err
 	return "", errors.New("No attachments found")
 }
 
-// create a formatted string with regions based on message ID from a text message
-// TODO: move message styling into UI
-func GetTextMessageString(msg *whatsapp.TextMessage) string {
-	colorMe := config.GetColorName("chat_me")
-	colorContact := config.GetColorName("chat_contact")
-	out := ""
-	text := tview.Escape(msg.Text)
-	tim := time.Unix(int64(msg.Info.Timestamp), 0)
-	time := tim.Format("02-01-06 15:04:05")
-	out += "[\""
-	out += msg.Info.Id
-	out += "\"]"
-	if msg.Info.FromMe { //msg from me
-		out += "[-::d](" + time + ") [" + colorMe + "::b]Me: [-::-]" + text
-	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) { // group msg
-		userId := msg.Info.SenderJid
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + GetIdShort(userId) + ": [-::-]" + text
-	} else { // message from others
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
-	}
-	out += "[\"\"]"
-	return out
-}
-
 // starts the receiver and message handling thread
 // TODO: can't be stopped, can only be called once!
 func (sm *SessionManager) StartTextReceiver() error {
 	var wac = sm.GetConnection()
-	err := sm.LoginWithConnection(wac)
+	err := sm.loginWithConnection(wac)
 	if err != nil {
 		return fmt.Errorf("%v\n", err)
 	}
@@ -292,7 +282,7 @@ func (sm *SessionManager) StartTextReceiver() error {
 			didNew := sm.db.AddTextMessage(&msg)
 			if msg.Info.RemoteJid == sm.currentReceiver {
 				if didNew {
-					sm.uiHandler.NewMessage(GetTextMessageString(&msg), msg.Info.Id)
+					sm.uiHandler.NewMessage(getTextMessageString(&msg), msg.Info.Id)
 				} else {
 					screen, ids := sm.db.GetMessagesString(sm.currentReceiver)
 					sm.uiHandler.NewScreen(screen, ids)
@@ -302,7 +292,7 @@ func (sm *SessionManager) StartTextReceiver() error {
 		case other := <-sm.OtherChannel:
 			sm.db.AddOtherMessage(&other)
 		case command := <-sm.CommandChannel:
-			sm.ExecCommand(command)
+			sm.execCommand(command)
 		}
 	}
 	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
@@ -311,7 +301,7 @@ func (sm *SessionManager) StartTextReceiver() error {
 }
 
 // sends text to whatsapp id
-func (sm SessionManager) SendText(wid string, text string) {
+func (sm SessionManager) sendText(wid string, text string) {
 	msg := whatsapp.TextMessage{
 		Info: whatsapp.MessageInfo{
 			RemoteJid: wid,
@@ -326,7 +316,7 @@ func (sm SessionManager) SendText(wid string, text string) {
 		sm.uiHandler.PrintError(err)
 	} else {
 		sm.db.AddTextMessage(&msg)
-		sm.uiHandler.NewMessage(GetTextMessageString(&msg), msg.Info.Id)
+		sm.uiHandler.NewMessage(getTextMessageString(&msg), msg.Info.Id)
 	}
 }
 

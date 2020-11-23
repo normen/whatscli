@@ -209,45 +209,17 @@ func handleHelp(ev *tcell.EventKey) *tcell.EventKey {
 	return nil
 }
 
-func handleDownload(ev *tcell.EventKey) *tcell.EventKey {
-	hls := textView.GetHighlights()
-	if len(hls) > 0 {
-		go DownloadMessageId(hls[0], false)
-		ResetMsgSelection()
-		app.SetFocus(textInput)
+func handleMessageCommand(command string) func(ev *tcell.EventKey) *tcell.EventKey {
+	return func(ev *tcell.EventKey) *tcell.EventKey {
+		hls := textView.GetHighlights()
+		if len(hls) > 0 {
+			PrintText("[::d]loading..[::-]")
+			sessionManager.CommandChannel <- messages.Command{command, []string{hls[0]}}
+			ResetMsgSelection()
+			app.SetFocus(textInput)
+		}
+		return nil
 	}
-	return nil
-}
-
-func handleOpen(ev *tcell.EventKey) *tcell.EventKey {
-	hls := textView.GetHighlights()
-	if len(hls) > 0 {
-		go DownloadMessageId(hls[0], true)
-		ResetMsgSelection()
-		app.SetFocus(textInput)
-	}
-	return nil
-}
-
-func handleShow(ev *tcell.EventKey) *tcell.EventKey {
-	hls := textView.GetHighlights()
-	if len(hls) > 0 {
-		go PrintImage(hls[0])
-		ResetMsgSelection()
-		app.SetFocus(textInput)
-	}
-	return nil
-}
-
-func handleInfo(ev *tcell.EventKey) *tcell.EventKey {
-	hls := textView.GetHighlights()
-	if len(hls) > 0 {
-		//TODO: command msg info
-		//PrintText(msgStore.GetMessageInfo(hls[0]))
-		ResetMsgSelection()
-		app.SetFocus(textInput)
-	}
-	return nil
 }
 
 func handleMessagesUp(ev *tcell.EventKey) *tcell.EventKey {
@@ -339,16 +311,16 @@ func LoadShortcuts() {
 	}
 	app.SetInputCapture(keyBindings.Capture)
 	keysMessages := cbind.NewConfiguration()
-	if err := keysMessages.Set(config.GetKey("message_download"), handleDownload); err != nil {
+	if err := keysMessages.Set(config.GetKey("message_download"), handleMessageCommand("download")); err != nil {
 		PrintErrorMsg("message_download:", err)
 	}
-	if err := keysMessages.Set(config.GetKey("message_open"), handleOpen); err != nil {
+	if err := keysMessages.Set(config.GetKey("message_open"), handleMessageCommand("open")); err != nil {
 		PrintErrorMsg("message_open:", err)
 	}
-	if err := keysMessages.Set(config.GetKey("message_show"), handleShow); err != nil {
+	if err := keysMessages.Set(config.GetKey("message_show"), handleMessageCommand("show")); err != nil {
 		PrintErrorMsg("message_show:", err)
 	}
-	if err := keysMessages.Set(config.GetKey("message_info"), handleInfo); err != nil {
+	if err := keysMessages.Set(config.GetKey("message_info"), handleMessageCommand("info")); err != nil {
 		PrintErrorMsg("message_info:", err)
 	}
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyEscape, handleExitMessages)
@@ -380,10 +352,10 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_info"), "[::-] = info about message")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
-	fmt.Fprintln(textView, "[::b] /backlog[::-] = load more messages for this chat ->[::b]", config.GetKey("command_backlog"), "[::-]")
-	fmt.Fprintln(textView, "[::b] /connect[::-] = (re)connect in case the connection dropped ->[::b]", config.GetKey("command_connect"), "[::-]")
-	fmt.Fprintln(textView, "[::b] /help[::-] = show this help ->[::b]", config.GetKey("command_help"), "[::-]")
-	fmt.Fprintln(textView, "[::b] /quit[::-] = exit app ->[::b]", config.GetKey("command_quit"), "[::-]")
+	fmt.Fprintln(textView, "[::b] /backlog [::-]or[::b]", config.GetKey("command_backlog"), "[::-] = load next 10 older messages for current chat")
+	fmt.Fprintln(textView, "[::b] /connect [::-]or[::b]", config.GetKey("command_connect"), "[::-] = (re)connect in case the connection dropped")
+	fmt.Fprintln(textView, "[::b] /help [::-]or[::b]", config.GetKey("command_help"), "[::-] = show this help")
+	fmt.Fprintln(textView, "[::b] /quit [::-]or[::b]", config.GetKey("command_quit"), "[::-] = exit app")
 	fmt.Fprintln(textView, "[::b] /disconnect[::-] = close the connection")
 	fmt.Fprintln(textView, "[::b] /logout[::-] = remove login data from computer (stays connected until app closes)")
 	fmt.Fprintln(textView, "")
@@ -429,7 +401,7 @@ func EnterCommand(key tcell.Key) {
 	}
 	if sndTxt == "/quit" {
 		//command
-		sessionManager.Disconnect()
+		sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
 		app.Stop()
 		return
 	}
@@ -492,35 +464,18 @@ func PrintErrorMsg(text string, err error) {
 }
 
 // prints an image attachment to the TextView (by message id)
-func PrintImage(id string) {
+func PrintImage(path string) {
 	var err error
-	var path string
-	PrintText("[::d]loading..[::-]")
-	if path, err = sessionManager.DownloadMessage(id, true); err == nil {
-		cmd := exec.Command("jp2a", "--color", path)
-		var stdout io.ReadCloser
-		if stdout, err = cmd.StdoutPipe(); err == nil {
-			if err = cmd.Start(); err == nil {
-				reader := bufio.NewReader(stdout)
-				io.Copy(tview.ANSIWriter(textView), reader)
-				return
-			}
+	cmd := exec.Command("jp2a", "--color", path)
+	var stdout io.ReadCloser
+	if stdout, err = cmd.StdoutPipe(); err == nil {
+		if err = cmd.Start(); err == nil {
+			reader := bufio.NewReader(stdout)
+			io.Copy(tview.ANSIWriter(textView), reader)
+			return
 		}
 	}
 	PrintError(err)
-}
-
-// downloads a specific message attachment
-func DownloadMessageId(id string, openIt bool) {
-	PrintText("[::d]loading..[::-]")
-	if result, err := sessionManager.DownloadMessage(id, openIt); err == nil {
-		PrintText("[::d]Downloaded as [yellow]" + result + "[-::-]")
-		if openIt {
-			open.Run(result)
-		}
-	} else {
-		PrintError(err)
-	}
 }
 
 // notifies about a new message if its recent
@@ -588,6 +543,14 @@ func (u UiHandler) PrintError(err error) {
 
 func (u UiHandler) PrintText(msg string) {
 	PrintText(msg)
+}
+
+func (u UiHandler) PrintFile(path string) {
+	PrintImage(path)
+}
+
+func (u UiHandler) OpenFile(path string) {
+	open.Run(path)
 }
 
 func (u UiHandler) GetWriter() io.Writer {
