@@ -6,9 +6,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
-	"time"
 
-	"github.com/Rhymen/go-whatsapp"
 	"github.com/gdamore/tcell/v2"
 	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/messages"
@@ -526,15 +524,15 @@ func DownloadMessageId(id string, openIt bool) {
 }
 
 // notifies about a new message if its recent
-func NotifyMsg(msg whatsapp.TextMessage) {
-	if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
-		//fmt.Print("\a")
-		//err := beeep.Notify(messages.GetIdName(msg.Info.RemoteJid), msg.Text, "")
-		//if err != nil {
-		//  fmt.Fprintln(textView, "[red]error in notification[-]")
-		//}
-	}
-}
+//func NotifyMsg(msg whatsapp.TextMessage) {
+//if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+//fmt.Print("\a")
+//err := beeep.Notify(messages.GetIdName(msg.Info.RemoteJid), msg.Text, "")
+//if err != nil {
+//  fmt.Fprintln(textView, "[red]error in notification[-]")
+//}
+//}
+//}
 
 // sets the current contact, loads text from storage to TextView
 func SetDisplayedContact(wid string) {
