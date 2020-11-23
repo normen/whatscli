@@ -335,6 +335,7 @@ func LoadShortcuts() {
 
 // prints help to chat view
 func PrintHelp() {
+	cmdPrefix := config.GetSetting("cmd_prefix")
 	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"[-]")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
@@ -352,12 +353,12 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_info"), "[::-] = info about message")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
-	fmt.Fprintln(textView, "[::b] /backlog [::-]or[::b]", config.GetKey("command_backlog"), "[::-] = load next 10 older messages for current chat")
-	fmt.Fprintln(textView, "[::b] /connect [::-]or[::b]", config.GetKey("command_connect"), "[::-] = (re)connect in case the connection dropped")
-	fmt.Fprintln(textView, "[::b] /help [::-]or[::b]", config.GetKey("command_help"), "[::-] = show this help")
-	fmt.Fprintln(textView, "[::b] /quit [::-]or[::b]", config.GetKey("command_quit"), "[::-] = exit app")
-	fmt.Fprintln(textView, "[::b] /disconnect[::-] = close the connection")
-	fmt.Fprintln(textView, "[::b] /logout[::-] = remove login data from computer (stays connected until app closes)")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.GetKey("command_backlog"), "[::-] = load next 10 older messages for current chat")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"connect [::-]or[::b]", config.GetKey("command_connect"), "[::-] = (re)connect in case the connection dropped")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"help [::-]or[::b]", config.GetKey("command_help"), "[::-] = show this help")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.GetKey("command_quit"), "[::-] = exit app")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"disconnect[::-] = close the connection")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"logout[::-] = remove login data from computer (stays connected until app closes)")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Config file in \n-> ", config.GetConfigFilePath())
 }
@@ -372,41 +373,31 @@ func EnterCommand(key tcell.Key) {
 		textInput.SetText("")
 		return
 	}
-	switch sndTxt {
-	}
-	if sndTxt == "/backlog" {
-		sessionManager.CommandChannel <- messages.Command{"backlog", nil}
-		textInput.SetText("")
-		return
-	}
-	if sndTxt == "/connect" {
-		sessionManager.CommandChannel <- messages.Command{"login", nil}
-		textInput.SetText("")
-		return
-	}
-	if sndTxt == "/disconnect" {
-		sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
-		textInput.SetText("")
-		return
-	}
-	if sndTxt == "/logout" {
-		sessionManager.CommandChannel <- messages.Command{"logout", nil}
-		textInput.SetText("")
-		return
-	}
-	if sndTxt == "/help" {
+	cmdPrefix := config.GetSetting("cmd_prefix")
+	if sndTxt == cmdPrefix+"help" {
 		//command
 		PrintHelp()
 		textInput.SetText("")
 		return
 	}
-	if sndTxt == "/quit" {
+	if sndTxt == cmdPrefix+"quit" {
 		//command
 		sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
 		app.Stop()
 		return
 	}
-	// send message
+	if strings.HasPrefix(sndTxt, cmdPrefix) {
+		cmd := strings.TrimPrefix(sndTxt, cmdPrefix)
+		if strings.Index(cmd, " ") >= 0 {
+			cmdParts := strings.Split(sndTxt, " ")
+			cmd = cmdParts[0]
+		}
+		//TODO: support command parameters
+		sessionManager.CommandChannel <- messages.Command{cmd, nil}
+		textInput.SetText("")
+		return
+	}
+	// no command, send as message
 	msg := messages.Command{
 		Name:   "send",
 		Params: []string{currentReceiver, sndTxt},

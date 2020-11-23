@@ -20,6 +20,12 @@ func InitConfig() {
 	if configFilePath, err = xdg.ConfigFile("whatscli/whatscli.config"); err == nil {
 		if cfg, err = ini.Load(configFilePath); err == nil {
 			//TODO: check config for new parameters
+			if section, err := cfg.GetSection("general"); err == nil {
+				if _, err := section.GetKey("cmd_prefix"); err != nil {
+					section.NewKey("cmd_prefix", "/")
+					err = cfg.SaveTo(configFilePath)
+				}
+			}
 			if section, err := cfg.GetSection("keymap"); err == nil {
 				if _, err := section.GetKey("command_backlog"); err != nil {
 					section.NewKey("command_backlog", "Ctrl+b")
@@ -45,6 +51,7 @@ func InitConfig() {
 			cfg.NewSection("general")
 			cfg.Section("general").NewKey("download_path", GetHomeDir()+"Downloads")
 			cfg.Section("general").NewKey("preview_path", GetHomeDir()+"Downloads")
+			cfg.Section("general").NewKey("cmd_prefix", "/")
 			cfg.NewSection("keymap")
 			cfg.Section("keymap").NewKey("switch_panels", "Tab")
 			cfg.Section("keymap").NewKey("focus_messages", "Ctrl+w")
