@@ -69,7 +69,7 @@ func InitConfig() {
 			cfg.Section("keymap").NewKey("message_open", "o")
 			cfg.Section("keymap").NewKey("message_show", "s")
 			cfg.Section("keymap").NewKey("message_info", "i")
-			cfg.Section("keymap").NewKey("message_revoke", "i")
+			cfg.Section("keymap").NewKey("message_revoke", "r")
 			cfg.NewSection("ui")
 			cfg.Section("ui").NewKey("contact_sidebar_width", "30")
 			cfg.NewSection("colors")
