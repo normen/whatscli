@@ -17,7 +17,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.0"
+var VERSION string = "v0.8.1"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -72,8 +72,6 @@ func main() {
 	textView.SetBackgroundColor(config.GetColor("background"))
 	textView.SetTextColor(config.GetColor("text"))
 
-	// TODO: add better way
-	sessionManager.SetTextView(textView)
 	PrintHelp()
 
 	textInput = tview.NewInputField()
@@ -197,13 +195,13 @@ func handleSwitchPanels(ev *tcell.EventKey) *tcell.EventKey {
 
 func handleCommand(command string) func(ev *tcell.EventKey) *tcell.EventKey {
 	return func(ev *tcell.EventKey) *tcell.EventKey {
-		sessionManager.CommandChannel <- command
+		sessionManager.CommandChannel <- messages.Command{command, nil}
 		return nil
 	}
 }
 
 func handleQuit(ev *tcell.EventKey) *tcell.EventKey {
-	sessionManager.CommandChannel <- "disconnect"
+	sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
 	app.Stop()
 	return nil
 }
@@ -406,22 +404,22 @@ func EnterCommand(key tcell.Key) {
 	switch sndTxt {
 	}
 	if sndTxt == "/backlog" {
-		sessionManager.CommandChannel <- "backlog"
+		sessionManager.CommandChannel <- messages.Command{"backlog", nil}
 		textInput.SetText("")
 		return
 	}
 	if sndTxt == "/connect" {
-		sessionManager.CommandChannel <- "login"
+		sessionManager.CommandChannel <- messages.Command{"login", nil}
 		textInput.SetText("")
 		return
 	}
 	if sndTxt == "/disconnect" {
-		sessionManager.CommandChannel <- "disconnect"
+		sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
 		textInput.SetText("")
 		return
 	}
 	if sndTxt == "/logout" {
-		sessionManager.CommandChannel <- "logout"
+		sessionManager.CommandChannel <- messages.Command{"logout", nil}
 		textInput.SetText("")
 		return
 	}
@@ -438,11 +436,11 @@ func EnterCommand(key tcell.Key) {
 		return
 	}
 	// send message
-	msg := messages.SendMsg{
-		Wid:  currentReceiver,
-		Text: sndTxt,
+	msg := messages.Command{
+		Name:   "send_message",
+		Params: []string{currentReceiver, sndTxt},
 	}
-	sessionManager.SendChannel <- msg
+	sessionManager.CommandChannel <- msg
 	textInput.SetText("")
 }
 
@@ -543,7 +541,7 @@ func SetDisplayedContact(wid string) {
 	currentReceiver = wid
 	textView.Clear()
 	textView.SetTitle(messages.GetIdName(wid))
-	sessionManager.DisplayedChannel <- currentReceiver
+	sessionManager.CommandChannel <- messages.Command{"select_contact", []string{currentReceiver}}
 }
 
 type UiHandler struct{}
@@ -592,4 +590,8 @@ func (u UiHandler) PrintError(err error) {
 
 func (u UiHandler) PrintText(msg string) {
 	PrintText(msg)
+}
+
+func (u UiHandler) GetWriter() io.Writer {
+	return textView
 }

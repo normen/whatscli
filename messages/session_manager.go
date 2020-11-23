@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -23,6 +24,7 @@ type UiMessageHandler interface {
 	SetContacts([]string)
 	PrintError(error)
 	PrintText(string)
+	GetWriter() io.Writer
 }
 
 type Command struct {
@@ -39,16 +41,12 @@ const GROUPSUFFIX = "@g.us"
 const CONTACTSUFFIX = "@s.whatsapp.net"
 
 type SessionManager struct {
-	db               MessageDatabase
-	currentReceiver  string // currently selected contact for message handling
-	uiHandler        UiMessageHandler
-	SendChannel      chan SendMsg
-	DisplayedChannel chan string
-	CommandChannel   chan string
-	TextChannel      chan whatsapp.TextMessage
-	OtherChannel     chan interface{}
-	ContactChannel   chan whatsapp.Contact
-	textView         *tview.TextView
+	db              MessageDatabase
+	currentReceiver string // currently selected contact for message handling
+	uiHandler       UiMessageHandler
+	CommandChannel  chan Command
+	TextChannel     chan whatsapp.TextMessage
+	OtherChannel    chan interface{}
 }
 
 func (sm *SessionManager) Init(handler UiMessageHandler) {
@@ -56,23 +54,15 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.db.Init()
 	sm.uiHandler = handler
 	//TODO: conflate to commandchannel
-	sm.SendChannel = make(chan SendMsg, 10)
-	sm.DisplayedChannel = make(chan string, 10)
-	sm.CommandChannel = make(chan string, 10)
+	sm.CommandChannel = make(chan Command, 10)
 	sm.TextChannel = make(chan whatsapp.TextMessage, 10)
 	sm.OtherChannel = make(chan interface{}, 10)
-	sm.ContactChannel = make(chan whatsapp.Contact, 10)
 }
 
 func (sm *SessionManager) SetCurrentReceiver(id string) {
 	sm.currentReceiver = id
 	screen, ids := sm.db.GetMessagesString(id)
 	sm.uiHandler.NewScreen(screen, ids)
-}
-
-// TODO: remove this circular dependeny in favor of a better way
-func (sm *SessionManager) SetTextView(tv *tview.TextView) {
-	sm.textView = tv
 }
 
 // gets an existing connection or creates one
@@ -117,7 +107,7 @@ func (sm *SessionManager) LoginWithConnection(wac *whatsapp.Conn) error {
 		qr := make(chan string)
 		go func() {
 			terminal := qrcode.New()
-			terminal.SetOutput(tview.ANSIWriter(sm.textView))
+			terminal.SetOutput(tview.ANSIWriter(sm.uiHandler.GetWriter()))
 			terminal.Get(<-qr).Print()
 		}()
 		session, err = wac.Login(qr)
@@ -177,6 +167,10 @@ func (sm *SessionManager) ExecCommand(command Command) {
 		//command
 		//TODO: output error
 		sm.uiHandler.PrintError(sm.Logout())
+	case "send_message":
+		sm.SendText(command.Params[0], command.Params[1])
+	case "select_contact":
+		sm.SetCurrentReceiver(command.Params[0])
 	}
 }
 
@@ -294,8 +288,6 @@ func (sm *SessionManager) StartTextReceiver() error {
 	wac.AddHandler(sm)
 	for {
 		select {
-		case msg := <-sm.SendChannel:
-			sm.SendText(msg.Wid, msg.Text)
 		case msg := <-sm.TextChannel:
 			didNew := sm.db.AddTextMessage(&msg)
 			if msg.Info.RemoteJid == sm.currentReceiver {
@@ -309,15 +301,11 @@ func (sm *SessionManager) StartTextReceiver() error {
 			sm.uiHandler.SetContacts(sm.db.GetContactIds())
 		case other := <-sm.OtherChannel:
 			sm.db.AddOtherMessage(&other)
-		case contact := <-sm.ContactChannel:
-			SetIdName(contact.Jid, contact.Name)
-		case contactId := <-sm.DisplayedChannel:
-			sm.SetCurrentReceiver(contactId)
 		case command := <-sm.CommandChannel:
-			sm.ExecCommand(Command{command, nil})
+			sm.ExecCommand(command)
 		}
 	}
-	fmt.Fprintln(sm.textView, "closing the receiver")
+	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
 	wac.Disconnect()
 	return nil
 }
