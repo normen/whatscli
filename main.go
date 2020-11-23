@@ -213,7 +213,6 @@ func handleMessageCommand(command string) func(ev *tcell.EventKey) *tcell.EventK
 	return func(ev *tcell.EventKey) *tcell.EventKey {
 		hls := textView.GetHighlights()
 		if len(hls) > 0 {
-			PrintText("[::d]loading..[::-]")
 			sessionManager.CommandChannel <- messages.Command{command, []string{hls[0]}}
 			ResetMsgSelection()
 			app.SetFocus(textInput)
@@ -323,6 +322,9 @@ func LoadShortcuts() {
 	if err := keysMessages.Set(config.GetKey("message_info"), handleMessageCommand("info")); err != nil {
 		PrintErrorMsg("message_info:", err)
 	}
+	if err := keysMessages.Set(config.GetKey("message_revoke"), handleMessageCommand("revoke")); err != nil {
+		PrintErrorMsg("message_revoke:", err)
+	}
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyEscape, handleExitMessages)
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyUp, handleMessagesUp)
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyDown, handleMessagesDown)
@@ -350,6 +352,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_download"), "[::-] = download attachment -> ", config.GetSetting("download_path"))
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_open"), "[::-] = download & open attachment -> ", config.GetSetting("preview_path"))
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_show"), "[::-] = download & show image using jp2a -> ", config.GetSetting("preview_path"))
+	fmt.Fprintln(textView, "[::b]", config.GetKey("message_revoke"), "[::-] = revoke message")
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_info"), "[::-] = info about message")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
@@ -357,6 +360,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"connect [::-]or[::b]", config.GetKey("command_connect"), "[::-] = (re)connect in case the connection dropped")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"help [::-]or[::b]", config.GetKey("command_help"), "[::-] = show this help")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.GetKey("command_quit"), "[::-] = exit app")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"leave[::-] = leave group")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"disconnect[::-] = close the connection")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"logout[::-] = remove login data from computer (stays connected until app closes)")
 	fmt.Fprintln(textView, "")

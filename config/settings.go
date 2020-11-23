@@ -31,6 +31,10 @@ func InitConfig() {
 					section.NewKey("command_backlog", "Ctrl+b")
 					err = cfg.SaveTo(configFilePath)
 				}
+				if _, err := section.GetKey("message_revoke"); err != nil {
+					section.NewKey("message_revoke", "r")
+					err = cfg.SaveTo(configFilePath)
+				}
 			}
 			if section, err := cfg.GetSection("colors"); err == nil {
 				if _, err := section.GetKey("borders"); err != nil {
@@ -65,6 +69,7 @@ func InitConfig() {
 			cfg.Section("keymap").NewKey("message_open", "o")
 			cfg.Section("keymap").NewKey("message_show", "s")
 			cfg.Section("keymap").NewKey("message_info", "i")
+			cfg.Section("keymap").NewKey("message_revoke", "i")
 			cfg.NewSection("ui")
 			cfg.Section("ui").NewKey("contact_sidebar_width", "30")
 			cfg.NewSection("colors")

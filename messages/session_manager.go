@@ -246,6 +246,47 @@ func (sm *SessionManager) execCommand(command Command) {
 		} else {
 			sm.uiHandler.PrintText("[red]Usage:[-] show [message-id[]")
 		}
+	case "revoke":
+		if checkParam(command.Params, 1) {
+			wac := sm.getConnection()
+			var revId string
+			var err error
+			if msgg, ok := sm.db.otherMessages[command.Params[0]]; ok {
+				switch msg := (*msgg).(type) {
+				default:
+				case whatsapp.ImageMessage:
+					revId, err = wac.RevokeMessage(msg.Info.RemoteJid, msg.Info.Id, msg.Info.FromMe)
+				case whatsapp.DocumentMessage:
+					revId, err = wac.RevokeMessage(msg.Info.RemoteJid, msg.Info.Id, msg.Info.FromMe)
+				case whatsapp.AudioMessage:
+					revId, err = wac.RevokeMessage(msg.Info.RemoteJid, msg.Info.Id, msg.Info.FromMe)
+				case whatsapp.VideoMessage:
+					revId, err = wac.RevokeMessage(msg.Info.RemoteJid, msg.Info.Id, msg.Info.FromMe)
+				}
+			} else {
+				if msg, ok := sm.db.messagesById[command.Params[0]]; ok {
+					revId, err = wac.RevokeMessage(msg.Info.RemoteJid, msg.Info.Id, msg.Info.FromMe)
+				}
+			}
+			if err == nil {
+				sm.uiHandler.PrintText("revoked: " + revId)
+			}
+			sm.uiHandler.PrintError(err)
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] revoke [message-id[]")
+		}
+	case "leave":
+		groupId := sm.currentReceiver
+		if checkParam(command.Params, 1) {
+			groupId = command.Params[0]
+		}
+		wac := sm.getConnection()
+		var err error
+		_, err = wac.LeaveGroup(groupId)
+		if err == nil {
+			sm.uiHandler.PrintText("left group")
+		}
+		sm.uiHandler.PrintError(err)
 	}
 }
 
