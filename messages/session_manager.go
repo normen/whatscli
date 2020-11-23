@@ -307,7 +307,7 @@ func (sm *SessionManager) StartTextReceiver() error {
 	var wac = sm.GetConnection()
 	err := sm.loginWithConnection(wac)
 	if err != nil {
-		return fmt.Errorf("%v\n", err)
+		sm.uiHandler.PrintError(err)
 	}
 	wac.AddHandler(sm)
 	for {
