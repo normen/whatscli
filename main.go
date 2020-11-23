@@ -15,7 +15,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.1"
+var VERSION string = "v0.8.2"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -388,12 +388,13 @@ func EnterCommand(key tcell.Key) {
 	}
 	if strings.HasPrefix(sndTxt, cmdPrefix) {
 		cmd := strings.TrimPrefix(sndTxt, cmdPrefix)
+		var params []string
 		if strings.Index(cmd, " ") >= 0 {
-			cmdParts := strings.Split(sndTxt, " ")
+			cmdParts := strings.Split(cmd, " ")
 			cmd = cmdParts[0]
+			params = cmdParts[1:]
 		}
-		//TODO: support command parameters
-		sessionManager.CommandChannel <- messages.Command{cmd, nil}
+		sessionManager.CommandChannel <- messages.Command{cmd, params}
 		textInput.SetText("")
 		return
 	}

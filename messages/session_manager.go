@@ -198,9 +198,10 @@ func (sm *SessionManager) execCommand(command Command) {
 		sm.uiHandler.PrintError(sm.logout())
 	case "send":
 		if checkParam(command.Params, 2) {
-			sm.sendText(command.Params[0], command.Params[1])
+			textParams := command.Params[1:]
+			text := strings.Join(textParams, " ")
+			sm.sendText(command.Params[0], text)
 		} else {
-			//TODO: message would be split if this was to be used
 			sm.uiHandler.PrintText("[red]Usage:[-] send [user-id[] [message text[]")
 		}
 	case "select":
@@ -248,8 +249,8 @@ func (sm *SessionManager) execCommand(command Command) {
 	}
 }
 
-func checkParam(arr []string, count int) bool {
-	if arr == nil || len(arr) < count {
+func checkParam(arr []string, length int) bool {
+	if arr == nil || len(arr) < length {
 		return false
 	}
 	return true
@@ -350,7 +351,9 @@ func (sm SessionManager) sendText(wid string, text string) {
 		sm.uiHandler.PrintError(err)
 	} else {
 		sm.db.AddTextMessage(&msg)
-		sm.uiHandler.NewMessage(getTextMessageString(&msg), msg.Info.Id)
+		if sm.currentReceiver == wid {
+			sm.uiHandler.NewMessage(getTextMessageString(&msg), msg.Info.Id)
+		}
 	}
 }
 
