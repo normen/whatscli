@@ -17,17 +17,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-type waMsg struct {
-	Wid  string
-	Text string
-}
-
-var VERSION string = "v0.7.4"
-
-var sendChannel chan waMsg
-var textChannel chan whatsapp.TextMessage
-var otherChannel chan interface{}
-var contactChannel chan whatsapp.Contact
+var VERSION string = "v0.8.0"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -38,18 +28,20 @@ var textInput *tview.InputField
 var topBar *tview.TextView
 
 //var infoBar *tview.TextView
-var msgStore messages.MessageDatabase
-var keysApp *cbind.Configuration
+var sessionManager *messages.SessionManager
+var keyBindings *cbind.Configuration
 
 var contactRoot *tview.TreeNode
-var handler textHandler
 var app *tview.Application
+var uiHandler messages.UiMessageHandler
 
 func main() {
 	config.InitConfig()
-	msgStore = messages.MessageDatabase{}
-	msgStore.Init()
+	uiHandler = UiHandler{}
+	sessionManager = &messages.SessionManager{}
+	sessionManager.Init(uiHandler)
 	messages.LoadContacts()
+
 	app = tview.NewApplication()
 
 	sideBarWidth := config.GetIntSetting("ui", "contact_sidebar_width")
@@ -81,7 +73,7 @@ func main() {
 	textView.SetTextColor(config.GetColor("text"))
 
 	// TODO: add better way
-	messages.SetTextView(textView)
+	sessionManager.SetTextView(textView)
 	PrintHelp()
 
 	textInput = tview.NewInputField()
@@ -130,7 +122,7 @@ func main() {
 	app.EnableMouse(true)
 	app.SetFocus(textInput)
 	go func() {
-		if err := StartTextReceiver(); err != nil {
+		if err := sessionManager.StartTextReceiver(); err != nil {
 			PrintError(err)
 		}
 	}()
@@ -203,14 +195,15 @@ func handleSwitchPanels(ev *tcell.EventKey) *tcell.EventKey {
 	return nil
 }
 
-func handleConnect(ev *tcell.EventKey) *tcell.EventKey {
-	msgStore.Init()
-	messages.Login()
-	return nil
+func handleCommand(command string) func(ev *tcell.EventKey) *tcell.EventKey {
+	return func(ev *tcell.EventKey) *tcell.EventKey {
+		sessionManager.CommandChannel <- command
+		return nil
+	}
 }
 
 func handleQuit(ev *tcell.EventKey) *tcell.EventKey {
-	messages.Disconnect()
+	sessionManager.CommandChannel <- "disconnect"
 	app.Stop()
 	return nil
 }
@@ -253,7 +246,8 @@ func handleShow(ev *tcell.EventKey) *tcell.EventKey {
 func handleInfo(ev *tcell.EventKey) *tcell.EventKey {
 	hls := textView.GetHighlights()
 	if len(hls) > 0 {
-		PrintText(msgStore.GetMessageInfo(hls[0]))
+		//TODO: command msg info
+		//PrintText(msgStore.GetMessageInfo(hls[0]))
 		ResetMsgSelection()
 		app.SetFocus(textInput)
 	}
@@ -322,29 +316,32 @@ func handleExitMessages(ev *tcell.EventKey) *tcell.EventKey {
 }
 
 func LoadShortcuts() {
-	keysApp = cbind.NewConfiguration()
-	if err := keysApp.Set(config.GetKey("focus_messages"), handleFocusMessage); err != nil {
+	keyBindings = cbind.NewConfiguration()
+	if err := keyBindings.Set(config.GetKey("focus_messages"), handleFocusMessage); err != nil {
 		PrintErrorMsg("focus_messages:", err)
 	}
-	if err := keysApp.Set(config.GetKey("focus_input"), handleFocusInput); err != nil {
+	if err := keyBindings.Set(config.GetKey("focus_input"), handleFocusInput); err != nil {
 		PrintErrorMsg("focus_input:", err)
 	}
-	if err := keysApp.Set(config.GetKey("focus_contacts"), handleFocusContacts); err != nil {
+	if err := keyBindings.Set(config.GetKey("focus_contacts"), handleFocusContacts); err != nil {
 		PrintErrorMsg("focus_contacts:", err)
 	}
-	if err := keysApp.Set(config.GetKey("switch_panels"), handleSwitchPanels); err != nil {
+	if err := keyBindings.Set(config.GetKey("switch_panels"), handleSwitchPanels); err != nil {
 		PrintErrorMsg("switch_panels:", err)
 	}
-	if err := keysApp.Set(config.GetKey("command_connect"), handleConnect); err != nil {
+	if err := keyBindings.Set(config.GetKey("command_backlog"), handleCommand("backlog")); err != nil {
+		PrintErrorMsg("command_backlog:", err)
+	}
+	if err := keyBindings.Set(config.GetKey("command_connect"), handleCommand("login")); err != nil {
 		PrintErrorMsg("command_connect:", err)
 	}
-	if err := keysApp.Set(config.GetKey("command_quit"), handleQuit); err != nil {
+	if err := keyBindings.Set(config.GetKey("command_quit"), handleQuit); err != nil {
 		PrintErrorMsg("command_quit:", err)
 	}
-	if err := keysApp.Set(config.GetKey("command_help"), handleHelp); err != nil {
+	if err := keyBindings.Set(config.GetKey("command_help"), handleHelp); err != nil {
 		PrintErrorMsg("command_help:", err)
 	}
-	app.SetInputCapture(keysApp.Capture)
+	app.SetInputCapture(keyBindings.Capture)
 	keysMessages := cbind.NewConfiguration()
 	if err := keysMessages.Set(config.GetKey("message_download"), handleDownload); err != nil {
 		PrintErrorMsg("message_download:", err)
@@ -387,6 +384,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.GetKey("message_info"), "[::-] = info about message")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
+	fmt.Fprintln(textView, "[::b] /backlog[::-] = load more messages for this chat ->[::b]", config.GetKey("command_backlog"), "[::-]")
 	fmt.Fprintln(textView, "[::b] /connect[::-] = (re)connect in case the connection dropped ->[::b]", config.GetKey("command_connect"), "[::-]")
 	fmt.Fprintln(textView, "[::b] /help[::-] = show this help ->[::b]", config.GetKey("command_help"), "[::-]")
 	fmt.Fprintln(textView, "[::b] /quit[::-] = exit app ->[::b]", config.GetKey("command_quit"), "[::-]")
@@ -405,27 +403,25 @@ func EnterCommand(key tcell.Key) {
 		textInput.SetText("")
 		return
 	}
+	switch sndTxt {
+	}
+	if sndTxt == "/backlog" {
+		sessionManager.CommandChannel <- "backlog"
+		textInput.SetText("")
+		return
+	}
 	if sndTxt == "/connect" {
-		//command
-		msgStore.Init()
-		messages.Login()
+		sessionManager.CommandChannel <- "login"
 		textInput.SetText("")
 		return
 	}
 	if sndTxt == "/disconnect" {
-		PrintError(messages.Disconnect())
+		sessionManager.CommandChannel <- "disconnect"
 		textInput.SetText("")
 		return
 	}
 	if sndTxt == "/logout" {
-		//command
-		PrintError(messages.Logout())
-		textInput.SetText("")
-		return
-	}
-	if sndTxt == "/load" {
-		//command
-		LoadContacts()
+		sessionManager.CommandChannel <- "logout"
 		textInput.SetText("")
 		return
 	}
@@ -437,51 +433,16 @@ func EnterCommand(key tcell.Key) {
 	}
 	if sndTxt == "/quit" {
 		//command
-		messages.Disconnect()
+		sessionManager.Disconnect()
 		app.Stop()
 		return
 	}
-	if sndTxt == "/keys" {
-		//command
-		//config.PrintKeys(textView)
-		textInput.SetText("")
-		return
-	}
-	if strings.Index(sndTxt, "/addname ") == 0 {
-		//command
-		parts := strings.Split(sndTxt, " ")
-		if len(parts) < 3 {
-			fmt.Fprintln(textView, "Use /addname 1234567 NewName")
-			return
-		}
-		contact := whatsapp.Contact{
-			Jid:  parts[1] + messages.CONTACTSUFFIX,
-			Name: strings.TrimPrefix(sndTxt, "/addname "+parts[1]+" "),
-		}
-		contactChannel <- contact
-		textInput.SetText("")
-		return
-	}
-	if currentReceiver == "" {
-		fmt.Fprintln(textView, "[red]no contact selected[-]")
-		return
-	}
-	if strings.Index(sndTxt, "/name ") == 0 {
-		//command
-		contact := whatsapp.Contact{
-			Jid:  currentReceiver,
-			Name: strings.TrimPrefix(sndTxt, "/name "),
-		}
-		contactChannel <- contact
-		textInput.SetText("")
-		return
-	}
 	// send message
-	msg := waMsg{
+	msg := messages.SendMsg{
 		Wid:  currentReceiver,
 		Text: sndTxt,
 	}
-	sendChannel <- msg
+	sessionManager.SendChannel <- msg
 	textInput.SetText("")
 }
 
@@ -513,11 +474,6 @@ func ResetMsgSelection() {
 	textView.ScrollToEnd()
 }
 
-// prints a text message to the TextView
-func PrintTextMessage(msg whatsapp.TextMessage) {
-	fmt.Fprintln(textView, messages.GetTextMessageString(&msg))
-}
-
 // prints text to the TextView
 func PrintText(txt string) {
 	fmt.Fprintln(textView, txt)
@@ -544,7 +500,7 @@ func PrintImage(id string) {
 	var err error
 	var path string
 	PrintText("[::d]loading..[::-]")
-	if path, err = msgStore.DownloadMessage(id, true); err == nil {
+	if path, err = sessionManager.DownloadMessage(id, true); err == nil {
 		cmd := exec.Command("jp2a", "--color", path)
 		var stdout io.ReadCloser
 		if stdout, err = cmd.StdoutPipe(); err == nil {
@@ -561,7 +517,7 @@ func PrintImage(id string) {
 // downloads a specific message attachment
 func DownloadMessageId(id string, openIt bool) {
 	PrintText("[::d]loading..[::-]")
-	if result, err := msgStore.DownloadMessage(id, openIt); err == nil {
+	if result, err := sessionManager.DownloadMessage(id, openIt); err == nil {
 		PrintText("[::d]Downloaded as [yellow]" + result + "[-::-]")
 		if openIt {
 			open.Run(result)
@@ -582,184 +538,58 @@ func NotifyMsg(msg whatsapp.TextMessage) {
 	}
 }
 
-// loads the contact data from storage to the TreeView
-func LoadContacts() {
-	var ids = msgStore.GetContactIds()
-	contactRoot.ClearChildren()
-	for _, element := range ids {
-		node := tview.NewTreeNode(messages.GetIdName(element)).
-			SetReference(element).
-			SetSelectable(true)
-		if strings.Count(element, messages.CONTACTSUFFIX) > 0 {
-			node.SetColor(config.GetColor("list_contact"))
-		} else {
-			node.SetColor(config.GetColor("list_group"))
-		}
-		contactRoot.AddChild(node)
-		if element == currentReceiver {
-			treeView.SetCurrentNode(node)
-		}
-	}
-}
-
 // sets the current contact, loads text from storage to TextView
 func SetDisplayedContact(wid string) {
 	currentReceiver = wid
 	textView.Clear()
 	textView.SetTitle(messages.GetIdName(wid))
-	msgTxt, regIds := msgStore.GetMessagesString(wid)
-	textView.SetText(msgTxt)
-	curRegions = regIds
+	sessionManager.DisplayedChannel <- currentReceiver
 }
 
-// starts the receiver and message handling thread
-func StartTextReceiver() error {
-	var wac = messages.GetConnection()
-	err := messages.LoginWithConnection(wac)
-	if err != nil {
-		return fmt.Errorf("%v\n", err)
-	}
-	handler = textHandler{}
-	wac.AddHandler(handler)
-	sendChannel = make(chan waMsg)
-	textChannel = make(chan whatsapp.TextMessage)
-	otherChannel = make(chan interface{})
-	contactChannel = make(chan whatsapp.Contact)
-	for {
-		select {
-		case msg := <-sendChannel:
-			SendText(msg.Wid, msg.Text)
-		case rcvd := <-textChannel:
-			if msgStore.AddTextMessage(&rcvd) {
-				app.QueueUpdateDraw(LoadContacts)
-			}
-		case other := <-otherChannel:
-			msgStore.AddOtherMessage(&other)
-		case contact := <-contactChannel:
-			messages.SetIdName(contact.Jid, contact.Name)
-			app.QueueUpdateDraw(LoadContacts)
-		}
-	}
-	fmt.Fprintln(textView, "closing the receiver")
-	wac.Disconnect()
-	return nil
-}
+type UiHandler struct{}
 
-// sends text to whatsapp id
-func SendText(wid string, text string) {
-	msg := whatsapp.TextMessage{
-		Info: whatsapp.MessageInfo{
-			RemoteJid: wid,
-			FromMe:    true,
-			Timestamp: uint64(time.Now().Unix()),
-		},
-		Text: text,
-	}
-
-	_, err := messages.GetConnection().Send(msg)
-	if err != nil {
-		PrintError(err)
-	} else {
-		msgStore.AddTextMessage(&msg)
-		PrintTextMessage(msg)
-	}
-}
-
-// handler struct for whatsapp callbacks
-type textHandler struct{}
-
-// HandleError implements the error handler interface for go-whatsapp
-func (t textHandler) HandleError(err error) {
-	PrintText("[red]go-whatsapp reported an error:[-]")
-	PrintError(err)
-	return
-}
-
-// HandleTextMessage implements the text message handler interface for go-whatsapp
-func (t textHandler) HandleTextMessage(msg whatsapp.TextMessage) {
-	textChannel <- msg
-	if msg.Info.RemoteJid != currentReceiver {
-		NotifyMsg(msg)
-		return
-	}
-	PrintTextMessage(msg)
-	// add to regions if current window, otherwise its not selectable
-	id := msg.Info.Id
-	app.QueueUpdate(func() {
+func (u UiHandler) NewMessage(msg string, id string) {
+	//TODO: its stupid to "go" this as its supposed to run
+	//on the ui thread anyway. But QueueUpdate blocks...?
+	go app.QueueUpdateDraw(func() {
 		curRegions = append(curRegions, id)
+		PrintText(msg)
 	})
 }
 
-// methods to convert messages to TextMessage
-func (t textHandler) HandleImageMessage(message whatsapp.ImageMessage) {
-	msg := whatsapp.TextMessage{
-		Info: whatsapp.MessageInfo{
-			RemoteJid: message.Info.RemoteJid,
-			SenderJid: message.Info.SenderJid,
-			FromMe:    message.Info.FromMe,
-			Timestamp: message.Info.Timestamp,
-			Id:        message.Info.Id,
-		},
-		Text: "[IMAGE] " + message.Caption,
-	}
-	t.HandleTextMessage(msg)
-	otherChannel <- message
+func (u UiHandler) NewScreen(screen string, ids []string) {
+	go app.QueueUpdateDraw(func() {
+		textView.Clear()
+		textView.SetText(screen)
+		curRegions = ids
+	})
 }
 
-func (t textHandler) HandleDocumentMessage(message whatsapp.DocumentMessage) {
-	msg := whatsapp.TextMessage{
-		Info: whatsapp.MessageInfo{
-			RemoteJid: message.Info.RemoteJid,
-			SenderJid: message.Info.SenderJid,
-			FromMe:    message.Info.FromMe,
-			Timestamp: message.Info.Timestamp,
-			Id:        message.Info.Id,
-		},
-		Text: "[DOCUMENT] " + message.Title,
-	}
-	t.HandleTextMessage(msg)
-	otherChannel <- message
+// loads the contact data from storage to the TreeView
+func (u UiHandler) SetContacts(ids []string) {
+	go app.QueueUpdateDraw(func() {
+		contactRoot.ClearChildren()
+		for _, element := range ids {
+			node := tview.NewTreeNode(messages.GetIdName(element)).
+				SetReference(element).
+				SetSelectable(true)
+			if strings.Count(element, messages.CONTACTSUFFIX) > 0 {
+				node.SetColor(config.GetColor("list_contact"))
+			} else {
+				node.SetColor(config.GetColor("list_group"))
+			}
+			contactRoot.AddChild(node)
+			if element == currentReceiver {
+				treeView.SetCurrentNode(node)
+			}
+		}
+	})
 }
 
-func (t textHandler) HandleVideoMessage(message whatsapp.VideoMessage) {
-	msg := whatsapp.TextMessage{
-		Info: whatsapp.MessageInfo{
-			RemoteJid: message.Info.RemoteJid,
-			SenderJid: message.Info.SenderJid,
-			FromMe:    message.Info.FromMe,
-			Timestamp: message.Info.Timestamp,
-			Id:        message.Info.Id,
-		},
-		Text: "[VIDEO] " + message.Caption,
-	}
-	t.HandleTextMessage(msg)
-	otherChannel <- message
+func (u UiHandler) PrintError(err error) {
+	PrintError(err)
 }
 
-func (t textHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
-	msg := whatsapp.TextMessage{
-		Info: whatsapp.MessageInfo{
-			RemoteJid: message.Info.RemoteJid,
-			SenderJid: message.Info.SenderJid,
-			FromMe:    message.Info.FromMe,
-			Timestamp: message.Info.Timestamp,
-			Id:        message.Info.Id,
-		},
-		Text: "[AUDIO]",
-	}
-	t.HandleTextMessage(msg)
-	otherChannel <- message
+func (u UiHandler) PrintText(msg string) {
+	PrintText(msg)
 }
-
-// add contact info to database (not needed, internal db of connection is used)
-func (t textHandler) HandleNewContact(contact whatsapp.Contact) {
-	// redundant, wac has contacts
-	//contactChannel <- contact
-}
-
-// handle battery messages
-//func (t textHandler) HandleBatteryMessage(msg whatsapp.BatteryMessage) {
-//  app.QueueUpdate(func() {
-//    infoBar.SetText("🔋: " + string(msg.Percentage) + "%")
-//  })
-//}
