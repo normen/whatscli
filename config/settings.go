@@ -15,75 +15,107 @@ var configFilePath string
 var keyConfig *cbind.Configuration
 var cfg *ini.File
 
+type IniFile struct {
+	*General
+	*Keymap
+	*Ui
+	*Colors
+}
+
+type General struct {
+	DownloadPath string
+	PreviewPath  string
+	CmdPrefix    string
+}
+
+type Keymap struct {
+	SwitchPanels    string
+	FocusMessages   string
+	FocusInput      string
+	FocusContacts   string
+	CommandBacklog  string
+	CommandConnect  string
+	CommandQuit     string
+	CommandHelp     string
+	MessageDownload string
+	MessageOpen     string
+	MessageShow     string
+	MessageInfo     string
+	MessageRevoke   string
+}
+
+type Ui struct {
+	ContactSidebarWidth int
+}
+
+type Colors struct {
+	Background      string
+	Text            string
+	ListHeader      string
+	ListContact     string
+	ListGroup       string
+	ChatContact     string
+	ChatMe          string
+	Borders         string
+	InputBackground string
+	InputText       string
+	Positive        string
+	Negative        string
+}
+
 func InitConfig() {
+	defaultCfg := &IniFile{
+		&General{
+			DownloadPath: GetHomeDir() + "Downloads",
+			PreviewPath:  GetHomeDir() + "Downloads",
+			CmdPrefix:    "/",
+		},
+		&Keymap{
+			SwitchPanels:    "Tab",
+			FocusMessages:   "Ctrl+w",
+			FocusInput:      "Ctrl+Space",
+			FocusContacts:   "Ctrl+e",
+			CommandBacklog:  "Ctrl+b",
+			CommandConnect:  "Ctrl+r",
+			CommandQuit:     "Ctrl+q",
+			CommandHelp:     "Ctrl+?",
+			MessageDownload: "d",
+			MessageInfo:     "i",
+			MessageOpen:     "o",
+			MessageRevoke:   "r",
+			MessageShow:     "s",
+		},
+		&Ui{
+			ContactSidebarWidth: 30,
+		},
+		&Colors{
+			Background:      "black",
+			Text:            "white",
+			ListHeader:      "yellow",
+			ListContact:     "green",
+			ListGroup:       "blue",
+			ChatContact:     "green",
+			ChatMe:          "blue",
+			Borders:         "white",
+			InputBackground: "blue",
+			InputText:       "white",
+			Positive:        "green",
+			Negative:        "red",
+		},
+	}
 	var err error
 	if configFilePath, err = xdg.ConfigFile("whatscli/whatscli.config"); err == nil {
-		if cfg, err = ini.Load(configFilePath); err == nil {
-			//TODO: check config for new parameters
-			if section, err := cfg.GetSection("general"); err == nil {
-				if _, err := section.GetKey("cmd_prefix"); err != nil {
-					section.NewKey("cmd_prefix", "/")
-					err = cfg.SaveTo(configFilePath)
-				}
-			}
-			if section, err := cfg.GetSection("keymap"); err == nil {
-				if _, err := section.GetKey("command_backlog"); err != nil {
-					section.NewKey("command_backlog", "Ctrl+b")
-					err = cfg.SaveTo(configFilePath)
-				}
-				if _, err := section.GetKey("message_revoke"); err != nil {
-					section.NewKey("message_revoke", "r")
-					err = cfg.SaveTo(configFilePath)
-				}
-			}
-			if section, err := cfg.GetSection("colors"); err == nil {
-				if _, err := section.GetKey("borders"); err != nil {
-					section.NewKey("borders", "white")
-					err = cfg.SaveTo(configFilePath)
-				}
-				if _, err := section.GetKey("input_background"); err != nil {
-					section.NewKey("input_background", "blue")
-					err = cfg.SaveTo(configFilePath)
-				}
-				if _, err := section.GetKey("input_text"); err != nil {
-					section.NewKey("input_text", "white")
-					err = cfg.SaveTo(configFilePath)
-				}
+		// add any new values
+		if err = ini.MapToWithMapper(*defaultCfg, ini.TitleUnderscore, configFilePath); err == nil {
+			cfg = ini.Empty()
+			if err = ini.ReflectFromWithMapper(cfg, defaultCfg, ini.TitleUnderscore); err == nil {
+				err = cfg.SaveTo(configFilePath)
 			}
 		} else {
 			cfg = ini.Empty()
-			cfg.NewSection("general")
-			cfg.Section("general").NewKey("download_path", GetHomeDir()+"Downloads")
-			cfg.Section("general").NewKey("preview_path", GetHomeDir()+"Downloads")
-			cfg.Section("general").NewKey("cmd_prefix", "/")
-			cfg.NewSection("keymap")
-			cfg.Section("keymap").NewKey("switch_panels", "Tab")
-			cfg.Section("keymap").NewKey("focus_messages", "Ctrl+w")
-			cfg.Section("keymap").NewKey("focus_input", "Ctrl+Space")
-			cfg.Section("keymap").NewKey("focus_contacts", "Ctrl+e")
-			cfg.Section("keymap").NewKey("command_backlog", "Ctrl+b")
-			cfg.Section("keymap").NewKey("command_connect", "Ctrl+r")
-			cfg.Section("keymap").NewKey("command_quit", "Ctrl+q")
-			cfg.Section("keymap").NewKey("command_help", "Ctrl+?")
-			cfg.Section("keymap").NewKey("message_download", "d")
-			cfg.Section("keymap").NewKey("message_open", "o")
-			cfg.Section("keymap").NewKey("message_show", "s")
-			cfg.Section("keymap").NewKey("message_info", "i")
-			cfg.Section("keymap").NewKey("message_revoke", "r")
-			cfg.NewSection("ui")
-			cfg.Section("ui").NewKey("contact_sidebar_width", "30")
-			cfg.NewSection("colors")
-			cfg.Section("colors").NewKey("background", "black")
-			cfg.Section("colors").NewKey("text", "white")
-			cfg.Section("colors").NewKey("list_header", "yellow")
-			cfg.Section("colors").NewKey("list_contact", "green")
-			cfg.Section("colors").NewKey("list_group", "blue")
-			cfg.Section("colors").NewKey("chat_contact", "green")
-			cfg.Section("colors").NewKey("chat_me", "blue")
-			cfg.Section("colors").NewKey("borders", "white")
-			cfg.Section("colors").NewKey("input_background", "blue")
-			cfg.Section("colors").NewKey("input_text", "white")
-			err = cfg.SaveTo(configFilePath)
+			if err = ini.ReflectFromWithMapper(cfg, defaultCfg, ini.TitleUnderscore); err == nil {
+				err = cfg.SaveTo(configFilePath)
+			}
 		}
 	}
 	if err != nil {
