@@ -137,9 +137,10 @@ func (ub *SessionManager) logout() error {
 }
 
 func (sm *SessionManager) execCommand(command Command) {
-	sndTxt := command.Name
-	switch sndTxt {
+	cmd := command.Name
+	switch cmd {
 	default:
+		sm.uiHandler.PrintText("[red]Unknown command: [-]" + cmd)
 	case "backlog":
 		//command
 		if sm.currentReceiver == "" {
@@ -163,30 +164,62 @@ func (sm *SessionManager) execCommand(command Command) {
 	case "logout":
 		sm.uiHandler.PrintError(sm.logout())
 	case "send":
-		sm.sendText(command.Params[0], command.Params[1])
-	case "select":
-		sm.setCurrentReceiver(command.Params[0])
-	case "info":
-		sm.uiHandler.PrintText(sm.db.GetMessageInfo(command.Params[0]))
-	case "download":
-		if path, err := sm.downloadMessage(command.Params[0], false); err != nil {
-			sm.uiHandler.PrintError(err)
+		if checkParam(command.Params, 2) {
+			sm.sendText(command.Params[0], command.Params[1])
 		} else {
-			sm.uiHandler.PrintText("[::d] -> " + path + "[::-]")
+			//TODO: message would be split if this was to be used
+			sm.uiHandler.PrintText("[red]Usage:[-] send [user-id[] [message text[]")
+		}
+	case "select":
+		if checkParam(command.Params, 1) {
+			sm.setCurrentReceiver(command.Params[0])
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] select [user-id[]")
+		}
+	case "info":
+		if checkParam(command.Params, 1) {
+			sm.uiHandler.PrintText(sm.db.GetMessageInfo(command.Params[0]))
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] info [message-id[]")
+		}
+	case "download":
+		if checkParam(command.Params, 1) {
+			if path, err := sm.downloadMessage(command.Params[0], false); err != nil {
+				sm.uiHandler.PrintError(err)
+			} else {
+				sm.uiHandler.PrintText("[::d] -> " + path + "[::-]")
+			}
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] download [message-id[]")
 		}
 	case "open":
-		if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
-			sm.uiHandler.OpenFile(path)
+		if checkParam(command.Params, 1) {
+			if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
+				sm.uiHandler.OpenFile(path)
+			} else {
+				sm.uiHandler.PrintError(err)
+			}
 		} else {
-			sm.uiHandler.PrintError(err)
+			sm.uiHandler.PrintText("[red]Usage:[-] open [message-id[]")
 		}
 	case "show":
-		if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
-			sm.uiHandler.PrintFile(path)
+		if checkParam(command.Params, 1) {
+			if path, err := sm.downloadMessage(command.Params[0], true); err == nil {
+				sm.uiHandler.PrintFile(path)
+			} else {
+				sm.uiHandler.PrintError(err)
+			}
 		} else {
-			sm.uiHandler.PrintError(err)
+			sm.uiHandler.PrintText("[red]Usage:[-] show [message-id[]")
 		}
 	}
+}
+
+func checkParam(arr []string, count int) bool {
+	if arr == nil || len(arr) < count {
+		return false
+	}
+	return true
 }
 
 // load data for message specified by message id TODO: support types
