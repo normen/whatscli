@@ -118,7 +118,7 @@ func main() {
 	app.EnableMouse(true)
 	app.SetFocus(textInput)
 	go func() {
-		if err := sessionManager.StartTextReceiver(); err != nil {
+		if err := sessionManager.StartManager(); err != nil {
 			PrintError(err)
 		}
 	}()

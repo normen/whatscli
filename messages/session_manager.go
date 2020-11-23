@@ -56,6 +56,39 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.OtherChannel = make(chan interface{}, 10)
 }
 
+// starts the receiver and message handling thread
+// TODO: can't be stopped, can only be called once!
+func (sm *SessionManager) StartManager() error {
+	var wac = sm.getConnection()
+	err := sm.loginWithConnection(wac)
+	if err != nil {
+		sm.uiHandler.PrintError(err)
+	}
+	wac.AddHandler(sm)
+	for {
+		select {
+		case msg := <-sm.TextChannel:
+			didNew := sm.db.AddTextMessage(&msg)
+			if msg.Info.RemoteJid == sm.currentReceiver {
+				if didNew {
+					sm.uiHandler.NewMessage(getTextMessageString(&msg), msg.Info.Id)
+				} else {
+					screen, ids := sm.db.GetMessagesString(sm.currentReceiver)
+					sm.uiHandler.NewScreen(screen, ids)
+				}
+			}
+			sm.uiHandler.SetContacts(sm.db.GetContactIds())
+		case other := <-sm.OtherChannel:
+			sm.db.AddOtherMessage(&other)
+		case command := <-sm.CommandChannel:
+			sm.execCommand(command)
+		}
+	}
+	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
+	wac.Disconnect()
+	return nil
+}
+
 func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
 	screen, ids := sm.db.GetMessagesString(id)
@@ -63,7 +96,7 @@ func (sm *SessionManager) setCurrentReceiver(id string) {
 }
 
 // gets an existing connection or creates one
-func (sm *SessionManager) GetConnection() *whatsapp.Conn {
+func (sm *SessionManager) getConnection() *whatsapp.Conn {
 	var wac *whatsapp.Conn
 	if connection == nil {
 		wacc, err := whatsapp.NewConn(5 * time.Second)
@@ -82,7 +115,7 @@ func (sm *SessionManager) GetConnection() *whatsapp.Conn {
 // login logs in the user. It ries to see if a session already exists. If not, tries to create a
 // new one using qr scanned on the terminal.
 func (sm *SessionManager) login() error {
-	return sm.loginWithConnection(sm.GetConnection())
+	return sm.loginWithConnection(sm.getConnection())
 }
 
 // loginWithConnection logs in the user using a provided connection. It ries to see if a session already exists. If not, tries to create a
@@ -123,7 +156,7 @@ func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
 }
 
 func (sm *SessionManager) disconnect() error {
-	wac := sm.GetConnection()
+	wac := sm.getConnection()
 	if wac != nil && wac.GetConnected() {
 		_, err := wac.Disconnect()
 		return err
@@ -150,7 +183,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		if currentMsgs, ok := sm.db.textMessages[sm.currentReceiver]; ok {
 			if len(currentMsgs) > 0 {
 				firstMsg := currentMsgs[0]
-				go sm.GetConnection().LoadChatMessages(sm.currentReceiver, count, firstMsg.Info.Id, firstMsg.Info.FromMe, false, sm)
+				go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, firstMsg.Info.Id, firstMsg.Info.FromMe, false, sm)
 			}
 		}
 	//FullChatHistory(currentReceiver, 20, 100000, handler)
@@ -301,39 +334,6 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 	return "", errors.New("No attachments found")
 }
 
-// starts the receiver and message handling thread
-// TODO: can't be stopped, can only be called once!
-func (sm *SessionManager) StartTextReceiver() error {
-	var wac = sm.GetConnection()
-	err := sm.loginWithConnection(wac)
-	if err != nil {
-		sm.uiHandler.PrintError(err)
-	}
-	wac.AddHandler(sm)
-	for {
-		select {
-		case msg := <-sm.TextChannel:
-			didNew := sm.db.AddTextMessage(&msg)
-			if msg.Info.RemoteJid == sm.currentReceiver {
-				if didNew {
-					sm.uiHandler.NewMessage(getTextMessageString(&msg), msg.Info.Id)
-				} else {
-					screen, ids := sm.db.GetMessagesString(sm.currentReceiver)
-					sm.uiHandler.NewScreen(screen, ids)
-				}
-			}
-			sm.uiHandler.SetContacts(sm.db.GetContactIds())
-		case other := <-sm.OtherChannel:
-			sm.db.AddOtherMessage(&other)
-		case command := <-sm.CommandChannel:
-			sm.execCommand(command)
-		}
-	}
-	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
-	wac.Disconnect()
-	return nil
-}
-
 // sends text to whatsapp id
 func (sm SessionManager) sendText(wid string, text string) {
 	msg := whatsapp.TextMessage{
@@ -345,7 +345,7 @@ func (sm SessionManager) sendText(wid string, text string) {
 		Text: text,
 	}
 
-	_, err := sm.GetConnection().Send(msg)
+	_, err := sm.getConnection().Send(msg)
 	if err != nil {
 		sm.uiHandler.PrintError(err)
 	} else {
