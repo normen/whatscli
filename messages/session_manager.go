@@ -51,7 +51,6 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.db = MessageDatabase{}
 	sm.db.Init()
 	sm.uiHandler = handler
-	//TODO: conflate to commandchannel
 	sm.CommandChannel = make(chan Command, 10)
 	sm.TextChannel = make(chan whatsapp.TextMessage, 10)
 	sm.OtherChannel = make(chan interface{}, 10)
@@ -156,9 +155,9 @@ func (sm *SessionManager) execCommand(command Command) {
 	//FullChatHistory(currentReceiver, 20, 100000, handler)
 	//messages.GetConnection().LoadFullChatHistory(currentReceiver, 20, 100000, handler)
 	case "login":
-		sm.login()
+		sm.uiHandler.PrintError(sm.login())
 	case "connect":
-		sm.login()
+		sm.uiHandler.PrintError(sm.login())
 	case "disconnect":
 		sm.uiHandler.PrintError(sm.disconnect())
 	case "logout":
