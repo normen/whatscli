@@ -106,7 +106,7 @@ func InitConfig() {
 	var err error
 	if configFilePath, err = xdg.ConfigFile("whatscli/whatscli.config"); err == nil {
 		// add any new values
-		if err = ini.MapToWithMapper(*defaultCfg, ini.TitleUnderscore, configFilePath); err == nil {
+		if err = ini.MapToWithMapper(defaultCfg, ini.TitleUnderscore, configFilePath); err == nil {
 			cfg = ini.Empty()
 			if err = ini.ReflectFromWithMapper(cfg, defaultCfg, ini.TitleUnderscore); err == nil {
 				err = cfg.SaveTo(configFilePath)
