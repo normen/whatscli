@@ -355,14 +355,86 @@ func (sm *SessionManager) execCommand(command Command) {
 					}
 					wac := sm.getConnection()
 					sm.lastSent = time.Now()
-					_, err := wac.Send(msg)
-					if err != nil {
-						sm.uiHandler.PrintError(err)
-					}
+					_, err = wac.Send(msg)
 				}
 			}
 		} else {
 			sm.uiHandler.PrintText("[red]Usage:[-] upload [/path/to/file[]")
+		}
+		sm.uiHandler.PrintError(err)
+	case "sendimage":
+		if sm.currentReceiver == "" {
+			return
+		}
+		var err error
+		if checkParam(command.Params, 1) {
+			path := strings.Join(command.Params, " ")
+			if mime, err := mimetype.DetectFile(path); err == nil {
+				if file, err := os.Open(path); err == nil {
+					msg := whatsapp.ImageMessage{
+						Info: whatsapp.MessageInfo{
+							RemoteJid: sm.currentReceiver,
+						},
+						Type:    mime.String(),
+						Content: file,
+					}
+					wac := sm.getConnection()
+					sm.lastSent = time.Now()
+					_, err = wac.Send(msg)
+				}
+			}
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] sendimage [/path/to/file[]")
+		}
+		sm.uiHandler.PrintError(err)
+	case "sendvideo":
+		if sm.currentReceiver == "" {
+			return
+		}
+		var err error
+		if checkParam(command.Params, 1) {
+			path := strings.Join(command.Params, " ")
+			if mime, err := mimetype.DetectFile(path); err == nil {
+				if file, err := os.Open(path); err == nil {
+					msg := whatsapp.VideoMessage{
+						Info: whatsapp.MessageInfo{
+							RemoteJid: sm.currentReceiver,
+						},
+						Type:    mime.String(),
+						Content: file,
+					}
+					wac := sm.getConnection()
+					sm.lastSent = time.Now()
+					_, err = wac.Send(msg)
+				}
+			}
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] sendvideo [/path/to/file[]")
+		}
+		sm.uiHandler.PrintError(err)
+	case "sendaudio":
+		if sm.currentReceiver == "" {
+			return
+		}
+		var err error
+		if checkParam(command.Params, 1) {
+			path := strings.Join(command.Params, " ")
+			if mime, err := mimetype.DetectFile(path); err == nil {
+				if file, err := os.Open(path); err == nil {
+					msg := whatsapp.AudioMessage{
+						Info: whatsapp.MessageInfo{
+							RemoteJid: sm.currentReceiver,
+						},
+						Type:    mime.String(),
+						Content: file,
+					}
+					wac := sm.getConnection()
+					sm.lastSent = time.Now()
+					_, err = wac.Send(msg)
+				}
+			}
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] sendaudio [/path/to/file[]")
 		}
 		sm.uiHandler.PrintError(err)
 	case "revoke":
