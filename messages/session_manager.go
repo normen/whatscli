@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"os"
 	"strings"
 	"time"
@@ -398,7 +399,10 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 		switch v := (*msg).(type) {
 		default:
 		case whatsapp.ImageMessage:
-			fileName += v.Info.Id + "." + strings.TrimPrefix(v.Type, "image/")
+			fileName += v.Info.Id
+			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
+				fileName += exts[0]
+			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
 			} else if os.IsNotExist(err) {
@@ -409,7 +413,10 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 				}
 			}
 		case whatsapp.DocumentMessage:
-			fileName += v.Info.Id + "." + strings.TrimPrefix(strings.TrimPrefix(v.Type, "application/"), "document/")
+			fileName += v.Info.Id
+			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
+				fileName += exts[0]
+			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
 			} else if os.IsNotExist(err) {
@@ -420,7 +427,10 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 				}
 			}
 		case whatsapp.AudioMessage:
-			fileName += v.Info.Id + "." + strings.TrimPrefix(v.Type, "audio/")
+			fileName += v.Info.Id
+			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
+				fileName += exts[0]
+			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
 			} else if os.IsNotExist(err) {
@@ -431,7 +441,10 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 				}
 			}
 		case whatsapp.VideoMessage:
-			fileName += v.Info.Id + "." + strings.TrimPrefix(v.Type, "video/")
+			fileName += v.Info.Id
+			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
+				fileName += exts[0]
+			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
 			} else if os.IsNotExist(err) {
