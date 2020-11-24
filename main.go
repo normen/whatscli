@@ -15,7 +15,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.4"
+var VERSION string = "v0.8.5"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -365,6 +365,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"help [::-]or[::b]", config.Config.Keymap.CommandHelp, "[::-] = show this help")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = exit app")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"leave[::-] = leave group")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"upload[::-] /path/to/file = upload file to current chat")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"disconnect[::-] = close the connection")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"logout[::-] = remove login data from computer (stays connected until app closes)")
 	fmt.Fprintln(textView, "")

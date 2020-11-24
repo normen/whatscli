@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/rivo/tview"
 
 	"github.com/Rhymen/go-whatsapp"
@@ -288,6 +289,33 @@ func (sm *SessionManager) execCommand(command Command) {
 		} else {
 			sm.uiHandler.PrintText("[red]Usage:[-] show [message-id[]")
 		}
+	case "upload":
+		if sm.currentReceiver == "" {
+			return
+		}
+		var err error
+		if checkParam(command.Params, 1) {
+			path := strings.Join(command.Params, " ")
+			if mime, err := mimetype.DetectFile(path); err == nil {
+				if file, err := os.Open(path); err == nil {
+					msg := whatsapp.DocumentMessage{
+						Info: whatsapp.MessageInfo{
+							RemoteJid: sm.currentReceiver,
+						},
+						Type:    mime.String(),
+						Content: file,
+					}
+					wac := sm.getConnection()
+					_, err := wac.Send(msg)
+					if err != nil {
+						sm.uiHandler.PrintError(err)
+					}
+				}
+			}
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] upload [/path/to/file[]")
+		}
+		sm.uiHandler.PrintError(err)
 	case "revoke":
 		if checkParam(command.Params, 1) {
 			wac := sm.getConnection()

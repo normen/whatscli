@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/Rhymen/go-whatsapp v0.1.1
 	github.com/adrg/xdg v0.2.3
+	github.com/gabriel-vasile/mimetype v1.1.2
 	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
