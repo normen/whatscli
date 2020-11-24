@@ -340,10 +340,12 @@ func (sm *SessionManager) execCommand(command Command) {
 			return
 		}
 		var err error
+		var mime *mimetype.MIME
+		var file *os.File
 		if checkParam(command.Params, 1) {
 			path := strings.Join(command.Params, " ")
-			if mime, err := mimetype.DetectFile(path); err == nil {
-				if file, err := os.Open(path); err == nil {
+			if mime, err = mimetype.DetectFile(path); err == nil {
+				if file, err = os.Open(path); err == nil {
 					msg := whatsapp.DocumentMessage{
 						Info: whatsapp.MessageInfo{
 							RemoteJid: sm.currentReceiver,
@@ -365,10 +367,12 @@ func (sm *SessionManager) execCommand(command Command) {
 			return
 		}
 		var err error
+		var mime *mimetype.MIME
+		var file *os.File
 		if checkParam(command.Params, 1) {
 			path := strings.Join(command.Params, " ")
-			if mime, err := mimetype.DetectFile(path); err == nil {
-				if file, err := os.Open(path); err == nil {
+			if mime, err = mimetype.DetectFile(path); err == nil {
+				if file, err = os.Open(path); err == nil {
 					msg := whatsapp.ImageMessage{
 						Info: whatsapp.MessageInfo{
 							RemoteJid: sm.currentReceiver,
@@ -390,10 +394,12 @@ func (sm *SessionManager) execCommand(command Command) {
 			return
 		}
 		var err error
+		var mime *mimetype.MIME
+		var file *os.File
 		if checkParam(command.Params, 1) {
 			path := strings.Join(command.Params, " ")
-			if mime, err := mimetype.DetectFile(path); err == nil {
-				if file, err := os.Open(path); err == nil {
+			if mime, err = mimetype.DetectFile(path); err == nil {
+				if file, err = os.Open(path); err == nil {
 					msg := whatsapp.VideoMessage{
 						Info: whatsapp.MessageInfo{
 							RemoteJid: sm.currentReceiver,
@@ -415,10 +421,12 @@ func (sm *SessionManager) execCommand(command Command) {
 			return
 		}
 		var err error
+		var mime *mimetype.MIME
+		var file *os.File
 		if checkParam(command.Params, 1) {
 			path := strings.Join(command.Params, " ")
-			if mime, err := mimetype.DetectFile(path); err == nil {
-				if file, err := os.Open(path); err == nil {
+			if mime, err = mimetype.DetectFile(path); err == nil {
+				if file, err = os.Open(path); err == nil {
 					msg := whatsapp.AudioMessage{
 						Info: whatsapp.MessageInfo{
 							RemoteJid: sm.currentReceiver,
