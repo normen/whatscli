@@ -107,10 +107,12 @@ func (sm *SessionManager) StartManager() error {
 				}
 				// notify if contact is in focus and we didn't send a message recently
 				if config.Config.General.EnableNotifications {
-					if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
-						err := beeep.Notify(GetIdShort(msg.Info.RemoteJid), msg.Text, "")
-						if err != nil {
-							sm.uiHandler.PrintError(err)
+					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+						if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
+							err := beeep.Notify(GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+							if err != nil {
+								sm.uiHandler.PrintError(err)
+							}
 						}
 					}
 				}
