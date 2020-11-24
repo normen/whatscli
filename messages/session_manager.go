@@ -255,7 +255,6 @@ func (sm *SessionManager) execCommand(command Command) {
 	default:
 		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Unknown command: [-]" + cmd)
 	case "backlog":
-		//command
 		if sm.currentReceiver == "" {
 			return
 		}
@@ -266,8 +265,6 @@ func (sm *SessionManager) execCommand(command Command) {
 				go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, firstMsg.Info.Id, firstMsg.Info.FromMe, false, sm)
 			}
 		}
-	//FullChatHistory(currentReceiver, 20, 100000, handler)
-	//messages.GetConnection().LoadFullChatHistory(currentReceiver, 20, 100000, handler)
 	case "login":
 		sm.uiHandler.PrintError(sm.login())
 	case "connect":
@@ -282,19 +279,19 @@ func (sm *SessionManager) execCommand(command Command) {
 			text := strings.Join(textParams, " ")
 			sm.sendText(command.Params[0], text)
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] send [user-id[] [message text[]")
+			sm.printCommandUsage("send", "[user-id[] [message text[]")
 		}
 	case "select":
 		if checkParam(command.Params, 1) {
 			sm.setCurrentReceiver(command.Params[0])
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] select [user-id[]")
+			sm.printCommandUsage("select", "[user-id[]")
 		}
 	case "info":
 		if checkParam(command.Params, 1) {
 			sm.uiHandler.PrintText(sm.db.GetMessageInfo(command.Params[0]))
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] info [message-id[]")
+			sm.printCommandUsage("info", "[message-id[]")
 		}
 	case "download":
 		if checkParam(command.Params, 1) {
@@ -304,7 +301,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				sm.uiHandler.PrintText("[::d] -> " + path + "[::-]")
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] download [message-id[]")
+			sm.printCommandUsage("download", "[message-id[]")
 		}
 	case "open":
 		if checkParam(command.Params, 1) {
@@ -314,7 +311,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				sm.uiHandler.PrintError(err)
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] open [message-id[]")
+			sm.printCommandUsage("open", "[message-id[]")
 		}
 	case "show":
 		if checkParam(command.Params, 1) {
@@ -324,7 +321,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				sm.uiHandler.PrintError(err)
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] show [message-id[]")
+			sm.printCommandUsage("show", "[message-id[]")
 		}
 	case "url":
 		if checkParam(command.Params, 1) {
@@ -336,7 +333,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] url [message-id[]")
+			sm.printCommandUsage("url", "[message-id[]")
 		}
 	case "upload":
 		if sm.currentReceiver == "" {
@@ -360,7 +357,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] upload /path/to/file")
+			sm.printCommandUsage("upload", "/path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "sendimage":
@@ -385,7 +382,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] sendimage /path/to/file")
+			sm.printCommandUsage("sendimage", "/path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "sendvideo":
@@ -410,7 +407,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] sendvideo /path/to/file")
+			sm.printCommandUsage("sendvideo", "/path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "sendaudio":
@@ -435,7 +432,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] sendaudio /path/to/file")
+			sm.printCommandUsage("sendaudio", "/path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "revoke":
@@ -465,7 +462,7 @@ func (sm *SessionManager) execCommand(command Command) {
 			}
 			sm.uiHandler.PrintError(err)
 		} else {
-			sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] revoke [message-id[]")
+			sm.printCommandUsage("revoke", "[message-id[]")
 		}
 	case "leave":
 		groupId := sm.currentReceiver
@@ -486,6 +483,11 @@ func (sm *SessionManager) execCommand(command Command) {
 		}
 		sm.uiHandler.PrintText(out)
 	}
+}
+
+// helper for built-in command help
+func (sm *SessionManager) printCommandUsage(command string, usage string) {
+	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] " + command + " " + usage)
 }
 
 // check if parameters for command are okay

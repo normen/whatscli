@@ -16,7 +16,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.9.2"
+var VERSION string = "v0.9.3"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -144,6 +144,7 @@ func MakeTree() *tview.TreeView {
 	treeView.SetChangedFunc(func(node *tview.TreeNode) {
 		reference := node.GetReference()
 		if reference == nil {
+			SetDisplayedContact("")
 			return // Selecting the root node does nothing.
 		}
 		children := node.GetChildren()
@@ -548,6 +549,9 @@ func (u UiHandler) NewScreen(screen string, ids []string) {
 		textView.Clear()
 		textView.SetText(screen)
 		curRegions = ids
+		if screen == "" {
+			PrintHelp()
+		}
 	})
 }
 
