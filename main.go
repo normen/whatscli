@@ -285,6 +285,7 @@ func handleExitMessages(ev *tcell.EventKey) *tcell.EventKey {
 	return nil
 }
 
+// load the key map
 func LoadShortcuts() {
 	keyBindings = cbind.NewConfiguration()
 	if err := keyBindings.Set(config.Config.Keymap.FocusMessages, handleFocusMessage); err != nil {
@@ -479,6 +480,7 @@ func PrintImage(path string) {
 	PrintError(err)
 }
 
+// updates the status bar
 func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	out := " "
 	if statusInfo.Connected {

@@ -34,6 +34,7 @@ type UiMessageHandler interface {
 	GetWriter() io.Writer
 }
 
+// data struct for current session status
 type SessionStatus struct {
 	BatteryCharge    int
 	BatteryLoading   bool
@@ -42,17 +43,20 @@ type SessionStatus struct {
 	LastSeen         string
 }
 
+// message struct for battery messages
 type BatteryMsg struct {
 	charge    int
 	loading   bool
 	powersave bool
 }
 
+// message struct for status messages
 type StatusMsg struct {
 	connected bool
 	err       error
 }
 
+// message object for commands
 type Command struct {
 	Name   string
 	Params []string
@@ -61,6 +65,8 @@ type Command struct {
 const GROUPSUFFIX = "@g.us"
 const CONTACTSUFFIX = "@s.whatsapp.net"
 
+// SessionManager deals with the connection and receives commands from the UI
+// it updates the UI accordingly
 type SessionManager struct {
 	db              MessageDatabase
 	currentReceiver string // currently selected contact for message handling
@@ -75,6 +81,7 @@ type SessionManager struct {
 	lastSent        time.Time
 }
 
+// initialize the SessionManager
 func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.db = MessageDatabase{}
 	sm.db.Init()
@@ -154,6 +161,7 @@ func (sm *SessionManager) StartManager() error {
 	return nil
 }
 
+// set the currently selected contact
 func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
 	screen, ids := sm.getMessagesString(id)
@@ -222,6 +230,7 @@ func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
 	return nil
 }
 
+// disconnects the session
 func (sm *SessionManager) disconnect() error {
 	wac := sm.getConnection()
 	var err error
@@ -232,11 +241,12 @@ func (sm *SessionManager) disconnect() error {
 	return err
 }
 
-// logout logs out the user.
+// logout logs out the user, deletes session file
 func (ub *SessionManager) logout() error {
 	return removeSession()
 }
 
+// executes a command
 func (sm *SessionManager) execCommand(command Command) {
 	cmd := command.Name
 	switch cmd {
@@ -386,6 +396,7 @@ func (sm *SessionManager) execCommand(command Command) {
 	}
 }
 
+// check if parameters for command are okay
 func checkParam(arr []string, length int) bool {
 	if arr == nil || len(arr) < length {
 		return false
@@ -421,6 +432,7 @@ func (sm *SessionManager) GetIdShort(id string) string {
 	return strings.TrimSuffix(id, CONTACTSUFFIX)
 }
 
+// get a string representation of all messages for contact
 func (sm *SessionManager) getMessagesString(wid string) (string, []string) {
 	out := ""
 	ids := []string{}
