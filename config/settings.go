@@ -25,6 +25,7 @@ type General struct {
 	DownloadPath        string
 	PreviewPath         string
 	CmdPrefix           string
+	ShowCommand         string
 	EnableNotifications bool
 	NotificationTimeout int64
 }
@@ -70,6 +71,7 @@ var Config = IniFile{
 		DownloadPath:        GetHomeDir() + "Downloads",
 		PreviewPath:         GetHomeDir() + "Downloads",
 		CmdPrefix:           "/",
+		ShowCommand:         "jp2a --color",
 		EnableNotifications: false,
 		NotificationTimeout: 60,
 	},

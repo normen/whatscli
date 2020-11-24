@@ -359,7 +359,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[red]Usage:[-] upload [/path/to/file[]")
+			sm.uiHandler.PrintText("[red]Usage:[-] upload /path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "sendimage":
@@ -384,7 +384,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[red]Usage:[-] sendimage [/path/to/file[]")
+			sm.uiHandler.PrintText("[red]Usage:[-] sendimage /path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "sendvideo":
@@ -409,7 +409,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[red]Usage:[-] sendvideo [/path/to/file[]")
+			sm.uiHandler.PrintText("[red]Usage:[-] sendvideo /path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "sendaudio":
@@ -434,7 +434,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				}
 			}
 		} else {
-			sm.uiHandler.PrintText("[red]Usage:[-] sendaudio [/path/to/file[]")
+			sm.uiHandler.PrintText("[red]Usage:[-] sendaudio /path/to/file")
 		}
 		sm.uiHandler.PrintError(err)
 	case "revoke":

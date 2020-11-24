@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -356,9 +357,9 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Message panel focused:[-::-]")
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = select message")
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageDownload, "[::-] = download attachment -> ", config.Config.General.DownloadPath)
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageOpen, "[::-] = download & open attachment -> ", config.Config.General.PreviewPath)
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageShow, "[::-] = download & show image using jp2a -> ", config.Config.General.PreviewPath)
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageDownload, "[::-] = download attachment to", config.Config.General.DownloadPath)
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageOpen, "[::-] = download & open attachment in", config.Config.General.PreviewPath)
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageShow, "[::-] = download & show image using"+config.Config.General.ShowCommand, config.Config.General.PreviewPath+string(os.PathSeparator)+"filename.file")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageUrl, "[::-] = find URL in message and open it")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageRevoke, "[::-] = revoke message")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageInfo, "[::-] = info about message")
@@ -473,7 +474,15 @@ func PrintErrorMsg(text string, err error) {
 // prints an image attachment to the TextView (by message id)
 func PrintImage(path string) {
 	var err error
-	cmd := exec.Command("jp2a", "--color", path)
+	cmdParts := strings.Split(config.Config.General.ShowCommand, " ")
+	cmdParts = append(cmdParts, path)
+	var cmd *exec.Cmd
+	size := len(cmdParts)
+	if size > 1 {
+		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
+	} else if size > 0 {
+		cmd = exec.Command(cmdParts[0])
+	}
 	var stdout io.ReadCloser
 	if stdout, err = cmd.StdoutPipe(); err == nil {
 		if err = cmd.Start(); err == nil {
