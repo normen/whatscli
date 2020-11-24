@@ -460,7 +460,7 @@ func PrintError(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(textView, "[red]", err.Error(), "[-]")
+	fmt.Fprintln(textView, "["+config.Config.Colors.Negative+"]", err.Error(), "[-]")
 }
 
 // prints an error to the TextView
@@ -468,7 +468,7 @@ func PrintErrorMsg(text string, err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(textView, "[red]", text, err.Error(), "[-]")
+	fmt.Fprintln(textView, "["+config.Config.Colors.Negative+"]", text, err.Error(), "[-]")
 }
 
 // prints an image attachment to the TextView (by message id)
