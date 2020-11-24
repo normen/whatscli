@@ -14,6 +14,7 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gen2brain/beeep"
 	"github.com/rivo/tview"
+	"mvdan.cc/xurls/v2"
 
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/normen/whatscli/config"
@@ -323,6 +324,18 @@ func (sm *SessionManager) execCommand(command Command) {
 			}
 		} else {
 			sm.uiHandler.PrintText("[red]Usage:[-] show [message-id[]")
+		}
+	case "url":
+		if checkParam(command.Params, 1) {
+			if msg, ok := sm.db.messagesById[command.Params[0]]; ok {
+				urlParser := xurls.Relaxed()
+				url := urlParser.FindString(msg.Text)
+				if url != "" {
+					sm.uiHandler.OpenFile(url)
+				}
+			}
+		} else {
+			sm.uiHandler.PrintText("[red]Usage:[-] url [message-id[]")
 		}
 	case "upload":
 		if sm.currentReceiver == "" {

@@ -15,7 +15,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.9"
+var VERSION string = "v0.8.10"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -323,6 +323,9 @@ func LoadShortcuts() {
 	if err := keysMessages.Set(config.Config.Keymap.MessageShow, handleMessageCommand("show")); err != nil {
 		PrintErrorMsg("message_show:", err)
 	}
+	if err := keysMessages.Set(config.Config.Keymap.MessageUrl, handleMessageCommand("url")); err != nil {
+		PrintErrorMsg("message_url:", err)
+	}
 	if err := keysMessages.Set(config.Config.Keymap.MessageInfo, handleMessageCommand("info")); err != nil {
 		PrintErrorMsg("message_info:", err)
 	}
@@ -356,18 +359,19 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageDownload, "[::-] = download attachment -> ", config.Config.General.DownloadPath)
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageOpen, "[::-] = download & open attachment -> ", config.Config.General.PreviewPath)
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageShow, "[::-] = download & show image using jp2a -> ", config.Config.General.PreviewPath)
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageUrl, "[::-] = find URL in message and open it")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageRevoke, "[::-] = revoke message")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageInfo, "[::-] = info about message")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.Config.Keymap.CommandBacklog, "[::-] = load next 10 older messages for current chat")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"connect [::-]or[::b]", config.Config.Keymap.CommandConnect, "[::-] = (re)connect in case the connection dropped")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"help [::-]or[::b]", config.Config.Keymap.CommandHelp, "[::-] = show this help")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = exit app")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"leave[::-] = leave group")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"upload[::-] /path/to/file = upload file to current chat")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"disconnect[::-] = close the connection")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"logout[::-] = remove login data from computer (stays connected until app closes)")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"help [::-]or[::b]", config.Config.Keymap.CommandHelp, "[::-] = show this help")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = exit app")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Config file in \n-> ", config.GetConfigFilePath())
 }

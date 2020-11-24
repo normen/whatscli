@@ -41,6 +41,7 @@ type Keymap struct {
 	MessageDownload string
 	MessageOpen     string
 	MessageShow     string
+	MessageUrl      string
 	MessageInfo     string
 	MessageRevoke   string
 }
@@ -84,6 +85,7 @@ var Config = IniFile{
 		MessageDownload: "d",
 		MessageInfo:     "i",
 		MessageOpen:     "o",
+		MessageUrl:      "u",
 		MessageRevoke:   "r",
 		MessageShow:     "s",
 	},
