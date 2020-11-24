@@ -110,10 +110,22 @@ func InitConfig() {
 		if cfg, err = ini.Load(configFilePath); err == nil {
 			cfg.NameMapper = ini.TitleUnderscore
 			cfg.ValueMapper = os.ExpandEnv
-			if err = cfg.MapTo(&Config); err == nil {
-				if err = ini.ReflectFromWithMapper(cfg, &Config, ini.TitleUnderscore); err == nil {
-					err = cfg.SaveTo(configFilePath)
-				}
+			if section, err := cfg.GetSection("general"); err == nil {
+				section.MapTo(&Config.General)
+			}
+			if section, err := cfg.GetSection("keymap"); err == nil {
+				section.MapTo(&Config.Keymap)
+			}
+			if section, err := cfg.GetSection("ui"); err == nil {
+				section.MapTo(&Config.Ui)
+			}
+			if section, err := cfg.GetSection("colors"); err == nil {
+				section.MapTo(&Config.Colors)
+			}
+			newCfg := ini.Empty()
+			if err = ini.ReflectFromWithMapper(newCfg, &Config, ini.TitleUnderscore); err == nil {
+				//TODO: only save if changes
+				err = newCfg.SaveTo(configFilePath)
 			}
 		} else {
 			cfg = ini.Empty()
