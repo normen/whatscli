@@ -116,7 +116,7 @@ func (sm *SessionManager) StartManager() error {
 					sm.uiHandler.NewScreen(screen, ids)
 				}
 				// notify if contact is in focus and we didn't send a message recently
-				if config.Config.General.EnableNotifications {
+				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 						if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
 							err := beeep.Notify(sm.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
@@ -127,7 +127,7 @@ func (sm *SessionManager) StartManager() error {
 					}
 				}
 			} else {
-				if config.Config.General.EnableNotifications {
+				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					// notify if message is younger than 30 sec and not in focus
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 						err := beeep.Notify(sm.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
