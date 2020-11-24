@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"mime"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -350,8 +351,8 @@ func (sm *SessionManager) execCommand(command Command) {
 						Info: whatsapp.MessageInfo{
 							RemoteJid: sm.currentReceiver,
 						},
-						Type:    mime.String(),
-						Content: file,
+						Type:     mime.String(),
+						FileName: filepath.Base(file.Name()),
 					}
 					wac := sm.getConnection()
 					sm.lastSent = time.Now()
