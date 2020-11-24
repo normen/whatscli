@@ -15,7 +15,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.8"
+var VERSION string = "v0.8.9"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -41,7 +41,6 @@ func main() {
 	uiHandler = UiHandler{}
 	sessionManager = &messages.SessionManager{}
 	sessionManager.Init(uiHandler)
-	messages.LoadContacts()
 
 	app = tview.NewApplication()
 
@@ -513,7 +512,7 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 func SetDisplayedContact(wid string) {
 	currentReceiver = wid
 	textView.Clear()
-	textView.SetTitle(messages.GetIdName(wid))
+	textView.SetTitle(sessionManager.GetIdName(wid))
 	sessionManager.CommandChannel <- messages.Command{"select", []string{currentReceiver}}
 }
 
@@ -541,7 +540,7 @@ func (u UiHandler) SetContacts(ids []string) {
 	go app.QueueUpdateDraw(func() {
 		contactRoot.ClearChildren()
 		for _, element := range ids {
-			node := tview.NewTreeNode(messages.GetIdName(element)).
+			node := tview.NewTreeNode(sessionManager.GetIdName(element)).
 				SetReference(element).
 				SetSelectable(true)
 			if strings.Count(element, messages.CONTACTSUFFIX) > 0 {

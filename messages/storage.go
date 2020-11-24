@@ -2,12 +2,8 @@ package messages
 
 import (
 	"sort"
-	"strings"
-	"time"
 
 	"github.com/Rhymen/go-whatsapp"
-	"github.com/normen/whatscli/config"
-	"github.com/rivo/tview"
 )
 
 type MessageDatabase struct {
@@ -102,38 +98,10 @@ func (db *MessageDatabase) GetMessageInfo(id string) string {
 }
 
 // get a string containing all messages for a chat by chat id
-func (db *MessageDatabase) GetMessagesString(wid string) (string, []string) {
-	//var this = *db
-	var out = ""
-	var arr = []string{}
+func (db *MessageDatabase) GetMessages(wid string) []whatsapp.TextMessage {
+	var arr = []whatsapp.TextMessage{}
 	for _, element := range db.textMessages[wid] {
-		out += getTextMessageString(element)
-		out += "\n"
-		arr = append(arr, element.Info.Id)
+		arr = append(arr, *element)
 	}
-	return out, arr
-}
-
-// create a formatted string with regions based on message ID from a text message
-// TODO: move message styling into UI
-func getTextMessageString(msg *whatsapp.TextMessage) string {
-	colorMe := config.Config.Colors.ChatMe
-	colorContact := config.Config.Colors.ChatContact
-	out := ""
-	text := tview.Escape(msg.Text)
-	tim := time.Unix(int64(msg.Info.Timestamp), 0)
-	time := tim.Format("02-01-06 15:04:05")
-	out += "[\""
-	out += msg.Info.Id
-	out += "\"]"
-	if msg.Info.FromMe { //msg from me
-		out += "[-::d](" + time + ") [" + colorMe + "::b]Me: [-::-]" + text
-	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) { // group msg
-		userId := msg.Info.SenderJid
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + GetIdShort(userId) + ": [-::-]" + text
-	} else { // message from others
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
-	}
-	out += "[\"\"]"
-	return out
+	return arr
 }
