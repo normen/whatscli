@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/gdamore/tcell/v2"
 	"github.com/gen2brain/beeep"
 	"github.com/rivo/tview"
 	"mvdan.cc/xurls/v2"
@@ -478,6 +479,12 @@ func (sm *SessionManager) execCommand(command Command) {
 			sm.uiHandler.PrintText("left group " + groupId)
 		}
 		sm.uiHandler.PrintError(err)
+	case "colorlist":
+		out := ""
+		for idx, _ := range tcell.ColorNames {
+			out = out + "[" + idx + "]" + idx + "[-]\n"
+		}
+		sm.uiHandler.PrintText(out)
 	}
 }
 
