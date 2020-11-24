@@ -22,9 +22,11 @@ type IniFile struct {
 }
 
 type General struct {
-	DownloadPath string
-	PreviewPath  string
-	CmdPrefix    string
+	DownloadPath        string
+	PreviewPath         string
+	CmdPrefix           string
+	EnableNotifications bool
+	NotificationTimeout int64
 }
 
 type Keymap struct {
@@ -64,9 +66,11 @@ type Colors struct {
 
 var Config = IniFile{
 	&General{
-		DownloadPath: GetHomeDir() + "Downloads",
-		PreviewPath:  GetHomeDir() + "Downloads",
-		CmdPrefix:    "/",
+		DownloadPath:        GetHomeDir() + "Downloads",
+		PreviewPath:         GetHomeDir() + "Downloads",
+		CmdPrefix:           "/",
+		EnableNotifications: false,
+		NotificationTimeout: 60,
 	},
 	&Keymap{
 		SwitchPanels:    "Tab",

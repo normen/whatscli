@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/gen2brain/beeep"
 	"github.com/rivo/tview"
 
 	"github.com/Rhymen/go-whatsapp"
@@ -70,6 +71,7 @@ type SessionManager struct {
 	TextChannel     chan whatsapp.TextMessage
 	OtherChannel    chan interface{}
 	statusInfo      SessionStatus
+	lastSent        time.Time
 }
 
 func (sm *SessionManager) Init(handler UiMessageHandler) {
@@ -102,6 +104,25 @@ func (sm *SessionManager) StartManager() error {
 				} else {
 					screen, ids := sm.db.GetMessagesString(sm.currentReceiver)
 					sm.uiHandler.NewScreen(screen, ids)
+				}
+				// notify if contact is in focus and we didn't send a message recently
+				if config.Config.General.EnableNotifications {
+					if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
+						err := beeep.Notify(GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+						if err != nil {
+							sm.uiHandler.PrintError(err)
+						}
+					}
+				}
+			} else {
+				if config.Config.General.EnableNotifications {
+					// notify if message is younger than 30 sec and not in focus
+					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+						err := beeep.Notify(GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+						if err != nil {
+							sm.uiHandler.PrintError(err)
+						}
+					}
 				}
 			}
 			sm.uiHandler.SetContacts(sm.db.GetContactIds())
@@ -307,6 +328,7 @@ func (sm *SessionManager) execCommand(command Command) {
 						Content: file,
 					}
 					wac := sm.getConnection()
+					sm.lastSent = time.Now()
 					_, err := wac.Send(msg)
 					if err != nil {
 						sm.uiHandler.PrintError(err)
@@ -460,7 +482,7 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 }
 
 // sends text to whatsapp id
-func (sm SessionManager) sendText(wid string, text string) {
+func (sm *SessionManager) sendText(wid string, text string) {
 	msg := whatsapp.TextMessage{
 		Info: whatsapp.MessageInfo{
 			RemoteJid: wid,
@@ -470,6 +492,7 @@ func (sm SessionManager) sendText(wid string, text string) {
 		Text: text,
 	}
 
+	sm.lastSent = time.Now()
 	_, err := sm.getConnection().Send(msg)
 	if err != nil {
 		sm.uiHandler.PrintError(err)

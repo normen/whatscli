@@ -15,7 +15,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.6"
+var VERSION string = "v0.8.7"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -508,17 +508,6 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	})
 	//infoBar.SetText("🔋: ??%")
 }
-
-// notifies about a new message if its recent
-//func NotifyMsg(msg whatsapp.TextMessage) {
-//if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
-//fmt.Print("\a")
-//err := beeep.Notify(messages.GetIdName(msg.Info.RemoteJid), msg.Text, "")
-//if err != nil {
-//  fmt.Fprintln(textView, "[red]error in notification[-]")
-//}
-//}
-//}
 
 // sets the current contact, loads text from storage to TextView
 func SetDisplayedContact(wid string) {
