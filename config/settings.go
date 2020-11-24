@@ -109,6 +109,7 @@ func InitConfig() {
 		var cfg *ini.File
 		if cfg, err = ini.Load(configFilePath); err == nil {
 			cfg.NameMapper = ini.TitleUnderscore
+			cfg.ValueMapper = os.ExpandEnv
 			if err = cfg.MapTo(&Config); err == nil {
 				if err = ini.ReflectFromWithMapper(cfg, &Config, ini.TitleUnderscore); err == nil {
 					err = cfg.SaveTo(configFilePath)
@@ -117,6 +118,7 @@ func InitConfig() {
 		} else {
 			cfg = ini.Empty()
 			cfg.NameMapper = ini.TitleUnderscore
+			cfg.ValueMapper = os.ExpandEnv
 			if err = ini.ReflectFromWithMapper(cfg, &Config, ini.TitleUnderscore); err == nil {
 				err = cfg.SaveTo(configFilePath)
 			}
