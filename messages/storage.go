@@ -117,8 +117,8 @@ func (db *MessageDatabase) GetMessagesString(wid string) (string, []string) {
 // create a formatted string with regions based on message ID from a text message
 // TODO: move message styling into UI
 func getTextMessageString(msg *whatsapp.TextMessage) string {
-	colorMe := config.GetColorName("chat_me")
-	colorContact := config.GetColorName("chat_contact")
+	colorMe := config.Config.Colors.ChatMe
+	colorContact := config.Config.Colors.ChatContact
 	out := ""
 	text := tview.Escape(msg.Text)
 	tim := time.Unix(int64(msg.Info.Timestamp), 0)

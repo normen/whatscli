@@ -26,8 +26,28 @@ type UiMessageHandler interface {
 	PrintError(error)
 	PrintText(string)
 	PrintFile(string)
+	SetStatus(SessionStatus)
 	OpenFile(string)
 	GetWriter() io.Writer
+}
+
+type SessionStatus struct {
+	BatteryCharge    int
+	BatteryLoading   bool
+	BatteryPowersave bool
+	Connected        bool
+	LastSeen         string
+}
+
+type BatteryMsg struct {
+	charge    int
+	loading   bool
+	powersave bool
+}
+
+type StatusMsg struct {
+	connected bool
+	err       error
 }
 
 type Command struct {
@@ -42,15 +62,20 @@ type SessionManager struct {
 	db              MessageDatabase
 	currentReceiver string // currently selected contact for message handling
 	uiHandler       UiMessageHandler
+	BatteryChannel  chan BatteryMsg
+	StatusChannel   chan StatusMsg
 	CommandChannel  chan Command
 	TextChannel     chan whatsapp.TextMessage
 	OtherChannel    chan interface{}
+	statusInfo      SessionStatus
 }
 
 func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.db = MessageDatabase{}
 	sm.db.Init()
 	sm.uiHandler = handler
+	sm.BatteryChannel = make(chan BatteryMsg, 10)
+	sm.StatusChannel = make(chan StatusMsg, 10)
 	sm.CommandChannel = make(chan Command, 10)
 	sm.TextChannel = make(chan whatsapp.TextMessage, 10)
 	sm.OtherChannel = make(chan interface{}, 10)
@@ -82,6 +107,20 @@ func (sm *SessionManager) StartManager() error {
 			sm.db.AddOtherMessage(&other)
 		case command := <-sm.CommandChannel:
 			sm.execCommand(command)
+		case batteryMsg := <-sm.BatteryChannel:
+			sm.statusInfo.BatteryLoading = batteryMsg.loading
+			sm.statusInfo.BatteryPowersave = batteryMsg.powersave
+			sm.statusInfo.BatteryCharge = batteryMsg.charge
+			sm.uiHandler.SetStatus(sm.statusInfo)
+		case statusMsg := <-sm.StatusChannel:
+			if statusMsg.err != nil {
+			} else {
+				sm.statusInfo.Connected = statusMsg.connected
+			}
+			wac := sm.getConnection()
+			connected := wac.GetConnected()
+			sm.statusInfo.Connected = connected
+			sm.uiHandler.SetStatus(sm.statusInfo)
 		}
 	}
 	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
@@ -123,6 +162,7 @@ func (sm *SessionManager) login() error {
 func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
 	if wac != nil && wac.GetConnected() {
 		wac.Disconnect()
+		sm.StatusChannel <- StatusMsg{false, nil}
 	}
 	//load saved session
 	session, err := readSession()
@@ -152,16 +192,18 @@ func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
 		return fmt.Errorf("error saving session: %v\n", err)
 	}
 	//<-time.After(3 * time.Second)
+	sm.StatusChannel <- StatusMsg{true, nil}
 	return nil
 }
 
 func (sm *SessionManager) disconnect() error {
 	wac := sm.getConnection()
+	var err error
 	if wac != nil && wac.GetConnected() {
-		_, err := wac.Disconnect()
-		return err
+		_, err = wac.Disconnect()
 	}
-	return nil
+	sm.StatusChannel <- StatusMsg{false, err}
+	return err
 }
 
 // logout logs out the user.
@@ -284,7 +326,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		var err error
 		_, err = wac.LeaveGroup(groupId)
 		if err == nil {
-			sm.uiHandler.PrintText("left group")
+			sm.uiHandler.PrintText("left group " + groupId)
 		}
 		sm.uiHandler.PrintError(err)
 	}
@@ -320,9 +362,9 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 	if msg, ok := sm.db.otherMessages[wid]; ok {
 		var fileName string = ""
 		if preview {
-			fileName += config.GetSetting("download_path")
+			fileName += config.Config.General.DownloadPath
 		} else {
-			fileName += config.GetSetting("preview_path")
+			fileName += config.Config.General.PreviewPath
 		}
 		fileName += string(os.PathSeparator)
 		switch v := (*msg).(type) {
@@ -404,6 +446,8 @@ func (sm SessionManager) sendText(wid string, text string) {
 func (sm *SessionManager) HandleError(err error) {
 	sm.uiHandler.PrintText("[red]go-whatsapp reported an error:[-]")
 	sm.uiHandler.PrintError(err)
+	statusMsg := StatusMsg{false, err}
+	sm.StatusChannel <- statusMsg
 	return
 }
 
@@ -480,11 +524,9 @@ func (sm *SessionManager) HandleNewContact(contact whatsapp.Contact) {
 }
 
 // handle battery messages
-//func (t textHandler) HandleBatteryMessage(msg whatsapp.BatteryMessage) {
-//  app.QueueUpdate(func() {
-//    infoBar.SetText("🔋: " + string(msg.Percentage) + "%")
-//  })
-//}
+func (sm *SessionManager) HandleBatteryMessage(msg whatsapp.BatteryMessage) {
+	sm.BatteryChannel <- BatteryMsg{msg.Percentage, msg.Plugged, msg.Powersave}
+}
 
 // helper to save an attachment and open it if specified
 func saveAttachment(data []byte, path string) (string, error) {
