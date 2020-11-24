@@ -15,7 +15,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.8.3"
+var VERSION string = "v0.8.4"
 
 var sndTxt string = ""
 var currentReceiver string = ""
@@ -57,7 +57,7 @@ func main() {
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetScrollable(false)
-	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type " + cmdPrefix + "help for help")
+	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type " + cmdPrefix + "help or press " + config.Config.Keymap.CommandHelp + " for help")
 	topBar.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
 	UpdateStatusBar(messages.SessionStatus{})
 
@@ -487,7 +487,7 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 		out += "[" + config.Config.Colors.Negative + "]offline[-]"
 	}
 	out += " "
-	out += "[::d] Battery:"
+	out += "[::d] ("
 	out += fmt.Sprint(statusInfo.BatteryCharge)
 	out += "%"
 	if statusInfo.BatteryLoading {
@@ -500,7 +500,7 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	} else {
 		out += " [" + config.Config.Colors.Positive + "]s[-]"
 	}
-	out += "[::-] "
+	out += ")[::-] "
 	out += statusInfo.LastSeen
 	go app.QueueUpdateDraw(func() {
 		infoBar.SetText(out)
