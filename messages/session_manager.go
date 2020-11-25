@@ -553,9 +553,9 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 	if msg, ok := sm.db.otherMessages[wid]; ok {
 		var fileName string = ""
 		if preview {
-			fileName += config.Config.General.DownloadPath
-		} else {
 			fileName += config.Config.General.PreviewPath
+		} else {
+			fileName += config.Config.General.DownloadPath
 		}
 		fileName += string(os.PathSeparator)
 		switch v := (*msg).(type) {
