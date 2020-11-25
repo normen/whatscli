@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -358,9 +357,9 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Message panel[-::-]")
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = select message")
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageDownload, "[::-] = Download attachment to", config.Config.General.DownloadPath)
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageOpen, "[::-] = Download & open attachment in", config.Config.General.PreviewPath)
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageShow, "[::-] = Download & show image using", config.Config.General.ShowCommand, config.Config.General.PreviewPath+string(os.PathSeparator)+"filename.file")
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageDownload, "[::-] = Download attachment")
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageOpen, "[::-] = Download & open attachment")
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageShow, "[::-] = Download & show image using", config.Config.General.ShowCommand)
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageUrl, "[::-] = Find URL in message and open it")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageRevoke, "[::-] = Revoke message")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageInfo, "[::-] = Info about message")
@@ -368,20 +367,21 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Global[-::-]")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"connect [::-]or[::b]", config.Config.Keymap.CommandConnect, "[::-] = (Re)Connect in case the connection dropped")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"connect [::-]or[::b]", config.Config.Keymap.CommandConnect, "[::-] = (Re)Connect to server")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"disconnect[::-]  = Close the connection")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"logout[::-]  = Remove login data from computer")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = Exit app")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Chat[-::-]")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.Config.Keymap.CommandBacklog, "[::-] = load next 10 older messages for current chat")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"upload[::-] /path/to/file  = Upload any file as document to current chat")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.Config.Keymap.CommandBacklog, "[::-] = load next 10 previous messages")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"upload[::-] /path/to/file  = Upload any file as document")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendimage[::-] /path/to/file  = Send image message")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendvideo[::-] /path/to/file  = Send video message")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendaudio[::-] /path/to/file  = Send audio message")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"leave[::-]  = Leave group")
 	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "Config file in \n-> ", config.GetConfigFilePath())
+	fmt.Fprintln(textView, "Configuration:")
+	fmt.Fprintln(textView, " ->", config.GetConfigFilePath())
 }
 
 // called when text is entered by the user
