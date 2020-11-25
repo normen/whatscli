@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"mime"
 	"os"
@@ -24,49 +23,6 @@ import (
 )
 
 // TODO: move message styling and ordering into UI, don't use strings
-// move these funcs/interface to channels
-type UiMessageHandler interface {
-	NewMessage(string, string)
-	NewScreen(string, []string)
-	SetContacts([]string)
-	PrintError(error)
-	PrintText(string)
-	PrintFile(string)
-	SetStatus(SessionStatus)
-	OpenFile(string)
-	GetWriter() io.Writer
-}
-
-// data struct for current session status
-type SessionStatus struct {
-	BatteryCharge    int
-	BatteryLoading   bool
-	BatteryPowersave bool
-	Connected        bool
-	LastSeen         string
-}
-
-// message struct for battery messages
-type BatteryMsg struct {
-	charge    int
-	loading   bool
-	powersave bool
-}
-
-// message struct for status messages
-type StatusMsg struct {
-	connected bool
-	err       error
-}
-
-// message object for commands
-type Command struct {
-	Name   string
-	Params []string
-}
-
-const GROUPSUFFIX = "@g.us"
-const CONTACTSUFFIX = "@s.whatsapp.net"
 
 // SessionManager deals with the connection and receives commands from the UI
 // it updates the UI accordingly
@@ -117,6 +73,7 @@ func (sm *SessionManager) StartManager() error {
 					sm.uiHandler.NewScreen(screen, ids)
 				}
 				// notify if contact is in focus and we didn't send a message recently
+				// TODO: move to UI (when UI has time in messages)
 				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 						if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
