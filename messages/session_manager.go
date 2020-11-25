@@ -246,6 +246,7 @@ func (sm *SessionManager) disconnect() error {
 
 // logout logs out the user, deletes session file
 func (ub *SessionManager) logout() error {
+	ub.getConnection().Disconnect()
 	return removeSession()
 }
 
