@@ -27,7 +27,7 @@ import (
 // SessionManager deals with the connection and receives commands from the UI
 // it updates the UI accordingly
 type SessionManager struct {
-	db              MessageDatabase
+	db              *MessageDatabase
 	currentReceiver string // currently selected contact for message handling
 	uiHandler       UiMessageHandler
 	connection      *whatsapp.Conn
@@ -42,7 +42,7 @@ type SessionManager struct {
 
 // initialize the SessionManager
 func (sm *SessionManager) Init(handler UiMessageHandler) {
-	sm.db = MessageDatabase{}
+	sm.db = &MessageDatabase{}
 	sm.db.Init()
 	sm.uiHandler = handler
 	sm.BatteryChannel = make(chan BatteryMsg, 10)
