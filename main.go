@@ -121,11 +121,9 @@ func main() {
 	app.SetRoot(gridLayout, true)
 	app.EnableMouse(true)
 	app.SetFocus(textInput)
-	go func() {
-		if err := sessionManager.StartManager(); err != nil {
-			PrintError(err)
-		}
-	}()
+	if err := sessionManager.StartManager(); err != nil {
+		PrintError(err)
+	}
 	LoadShortcuts()
 	app.Run()
 }

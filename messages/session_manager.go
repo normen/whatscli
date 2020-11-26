@@ -36,6 +36,7 @@ type SessionManager struct {
 	OtherChannel    chan interface{}
 	statusInfo      SessionStatus
 	lastSent        time.Time
+	started         bool
 }
 
 // initialize the SessionManager
@@ -50,16 +51,24 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.OtherChannel = make(chan interface{}, 10)
 }
 
-// starts the receiver and message handling thread
-// TODO: can't be stopped, can only be called once!
+// starts the receiver and message handling go routine
 func (sm *SessionManager) StartManager() error {
+	if sm.started {
+		return errors.New("session manager running, send commands to control")
+	}
+	sm.started = true
+	go sm.runManager()
+	return nil
+}
+
+func (sm *SessionManager) runManager() error {
 	var wac = sm.getConnection()
 	err := sm.loginWithConnection(wac)
 	if err != nil {
 		sm.uiHandler.PrintError(err)
 	}
 	wac.AddHandler(sm)
-	for {
+	for sm.started == true {
 		select {
 		case msg := <-sm.TextChannel:
 			didNew := sm.db.AddTextMessage(&msg)
