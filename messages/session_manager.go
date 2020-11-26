@@ -480,7 +480,7 @@ func (sm *SessionManager) getIdName(id string) string {
 			return val.Notify
 		}
 	}
-	return strings.TrimSuffix(id, CONTACTSUFFIX)
+	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 }
 
 // gets a short name for a whatsapp id
@@ -494,7 +494,7 @@ func (sm *SessionManager) getIdShort(id string) string {
 			return val.Notify
 		}
 	}
-	return strings.TrimSuffix(id, CONTACTSUFFIX)
+	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 }
 
 // get all messages for one contact id
