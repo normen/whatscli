@@ -160,13 +160,6 @@ func GetSessionFilePath() string {
 	return GetHomeDir() + ".whatscli.session"
 }
 
-func GetContactsFilePath() string {
-	if sessionFilePath, err := xdg.ConfigFile("whatscli/contacts"); err == nil {
-		return sessionFilePath
-	}
-	return GetHomeDir() + ".whatscli.contacts"
-}
-
 // gets the OS home dir with a path separator at the end
 func GetHomeDir() string {
 	usr, err := user.Current()
