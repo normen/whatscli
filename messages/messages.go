@@ -65,3 +65,4 @@ type Contact struct {
 
 const GROUPSUFFIX = "@g.us"
 const CONTACTSUFFIX = "@s.whatsapp.net"
+const STATUSSUFFIX = "status@broadcast"
