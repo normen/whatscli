@@ -45,7 +45,7 @@ func main() {
 
 	app = tview.NewApplication()
 
-	sideBarWidth := config.Config.Ui.ContactSidebarWidth
+	sideBarWidth := config.Config.Ui.ChatSidebarWidth
 	gridLayout := tview.NewGrid()
 	gridLayout.SetRows(1, 0, 1)
 	gridLayout.SetColumns(sideBarWidth, 0, sideBarWidth)
@@ -294,7 +294,7 @@ func LoadShortcuts() {
 	if err := keyBindings.Set(config.Config.Keymap.FocusInput, handleFocusInput); err != nil {
 		PrintErrorMsg("focus_input:", err)
 	}
-	if err := keyBindings.Set(config.Config.Keymap.FocusContacts, handleFocusContacts); err != nil {
+	if err := keyBindings.Set(config.Config.Keymap.FocusChats, handleFocusContacts); err != nil {
 		PrintErrorMsg("focus_contacts:", err)
 	}
 	if err := keyBindings.Set(config.Config.Keymap.SwitchPanels, handleSwitchPanels); err != nil {

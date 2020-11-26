@@ -34,7 +34,7 @@ type Keymap struct {
 	SwitchPanels    string
 	FocusMessages   string
 	FocusInput      string
-	FocusContacts   string
+	FocusChats      string
 	CommandBacklog  string
 	CommandConnect  string
 	CommandQuit     string
@@ -48,7 +48,7 @@ type Keymap struct {
 }
 
 type Ui struct {
-	ContactSidebarWidth int
+	ChatSidebarWidth int
 }
 
 type Colors struct {
@@ -79,7 +79,7 @@ var Config = IniFile{
 		SwitchPanels:    "Tab",
 		FocusMessages:   "Ctrl+w",
 		FocusInput:      "Ctrl+Space",
-		FocusContacts:   "Ctrl+e",
+		FocusChats:      "Ctrl+e",
 		CommandBacklog:  "Ctrl+b",
 		CommandConnect:  "Ctrl+r",
 		CommandQuit:     "Ctrl+q",
@@ -92,7 +92,7 @@ var Config = IniFile{
 		MessageShow:     "s",
 	},
 	&Ui{
-		ContactSidebarWidth: 30,
+		ChatSidebarWidth: 30,
 	},
 	&Colors{
 		Background:      "black",
