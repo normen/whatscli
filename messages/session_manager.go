@@ -67,17 +67,17 @@ func (sm *SessionManager) StartManager() error {
 			didNew := sm.db.AddTextMessage(&msg)
 			if msg.Info.RemoteJid == sm.currentReceiver {
 				if didNew {
-					sm.uiHandler.NewMessage(sm.getTextMessageString(&msg), msg.Info.Id)
+					sm.uiHandler.NewMessage(sm.createMessage(&msg))
 				} else {
-					screen, ids := sm.getMessagesString(sm.currentReceiver)
-					sm.uiHandler.NewScreen(screen, ids)
+					screen := sm.getMessages(sm.currentReceiver)
+					sm.uiHandler.NewScreen(screen)
 				}
 				// notify if contact is in focus and we didn't send a message recently
 				// TODO: move to UI (when UI has time in messages)
 				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 						if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
-							err := beeep.Notify(sm.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+							err := beeep.Notify(sm.getIdShort(msg.Info.RemoteJid), msg.Text, "")
 							if err != nil {
 								sm.uiHandler.PrintError(err)
 							}
@@ -88,14 +88,20 @@ func (sm *SessionManager) StartManager() error {
 				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					// notify if message is younger than 30 sec and not in focus
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
-						err := beeep.Notify(sm.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+						err := beeep.Notify(sm.getIdShort(msg.Info.RemoteJid), msg.Text, "")
 						if err != nil {
 							sm.uiHandler.PrintError(err)
 						}
 					}
 				}
 			}
-			sm.uiHandler.SetContacts(sm.db.GetContactIds())
+			//TODO: create here this way? -> updates list quickly
+			contactIds := sm.db.GetContactIds()
+			contacts := make([]Contact, len(contactIds))
+			for idx, id := range contactIds {
+				contacts[idx] = Contact{id, strings.Contains(id, GROUPSUFFIX), sm.getIdName(id)}
+			}
+			sm.uiHandler.SetContacts(contacts)
 		case other := <-sm.OtherChannel:
 			sm.db.AddOtherMessage(&other)
 		case command := <-sm.CommandChannel:
@@ -124,8 +130,8 @@ func (sm *SessionManager) StartManager() error {
 // set the currently selected contact
 func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
-	screen, ids := sm.getMessagesString(id)
-	sm.uiHandler.NewScreen(screen, ids)
+	screen := sm.getMessages(id)
+	sm.uiHandler.NewScreen(screen)
 }
 
 // gets an existing connection or creates one
@@ -466,7 +472,7 @@ func checkParam(arr []string, length int) bool {
 }
 
 // gets a pretty name for a whatsapp id
-func (sm *SessionManager) GetIdName(id string) string {
+func (sm *SessionManager) getIdName(id string) string {
 	if val, ok := sm.getConnection().Store.Contacts[id]; ok {
 		if val.Name != "" {
 			return val.Name
@@ -480,7 +486,7 @@ func (sm *SessionManager) GetIdName(id string) string {
 }
 
 // gets a short name for a whatsapp id
-func (sm *SessionManager) GetIdShort(id string) string {
+func (sm *SessionManager) getIdShort(id string) string {
 	if val, ok := sm.getConnection().Store.Contacts[id]; ok {
 		if val.Short != "" {
 			return val.Short
@@ -493,41 +499,35 @@ func (sm *SessionManager) GetIdShort(id string) string {
 	return strings.TrimSuffix(id, CONTACTSUFFIX)
 }
 
-// get a string representation of all messages for contact
-func (sm *SessionManager) getMessagesString(wid string) (string, []string) {
-	out := ""
-	ids := []string{}
+// get all messages for one contact id
+func (sm *SessionManager) getMessages(wid string) []Message {
 	msgs := sm.db.GetMessages(wid)
+	ids := []Message{}
 	for _, msg := range msgs {
-		out += sm.getTextMessageString(&msg)
-		out += "\n"
-		ids = append(ids, msg.Info.Id)
+		ids = append(ids, sm.createMessage(&msg))
 	}
-	return out, ids
+	return ids
 }
 
-// create a formatted string with regions based on message ID from a text message
-// TODO: move message styling into UI
-func (sm *SessionManager) getTextMessageString(msg *whatsapp.TextMessage) string {
-	colorMe := config.Config.Colors.ChatMe
-	colorContact := config.Config.Colors.ChatContact
-	out := ""
-	text := tview.Escape(msg.Text)
-	tim := time.Unix(int64(msg.Info.Timestamp), 0)
-	time := tim.Format("02-01-06 15:04:05")
-	out += "[\""
-	out += msg.Info.Id
-	out += "\"]"
-	if msg.Info.FromMe { //msg from me
-		out += "[-::d](" + time + ") [" + colorMe + "::b]Me: [-::-]" + text
-	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) { // group msg
-		userId := msg.Info.SenderJid
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + sm.GetIdShort(userId) + ": [-::-]" + text
-	} else { // message from others
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + sm.GetIdShort(msg.Info.RemoteJid) + ": [-::-]" + text
+// create internal message from whatsapp message
+func (sm *SessionManager) createMessage(msg *whatsapp.TextMessage) Message {
+	newMsg := Message{}
+	newMsg.Id = msg.Info.Id
+	newMsg.SourceId = msg.Info.RemoteJid
+	newMsg.FromMe = msg.Info.FromMe
+	newMsg.Timestamp = msg.Info.Timestamp
+	newMsg.Text = msg.Text
+	if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) {
+		newMsg.ContactId = msg.Info.SenderJid
+		newMsg.SourceName = sm.getIdName(msg.Info.SenderJid)
+		newMsg.SourceShort = sm.getIdShort(msg.Info.SenderJid)
+
+	} else {
+		newMsg.ContactId = msg.Info.RemoteJid
+		newMsg.SourceName = sm.getIdName(msg.Info.RemoteJid)
+		newMsg.SourceShort = sm.getIdShort(msg.Info.RemoteJid)
 	}
-	out += "[\"\"]"
-	return out
+	return newMsg
 }
 
 // load data for message specified by message id TODO: support types
@@ -639,7 +639,7 @@ func (sm *SessionManager) sendText(wid string, text string) {
 	} else {
 		sm.db.AddTextMessage(&msg)
 		if sm.currentReceiver == wid {
-			sm.uiHandler.NewMessage(sm.getTextMessageString(&msg), msg.Info.Id)
+			sm.uiHandler.NewMessage(sm.createMessage(&msg))
 		}
 	}
 }

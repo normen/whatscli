@@ -5,9 +5,9 @@ import "io"
 
 // TODO: move these funcs/interface to channels
 type UiMessageHandler interface {
-	NewMessage(string, string)
-	NewScreen(string, []string)
-	SetContacts([]string)
+	NewMessage(Message)
+	NewScreen([]Message)
+	SetContacts([]Contact)
 	PrintError(error)
 	PrintText(string)
 	PrintFile(string)
@@ -46,17 +46,21 @@ type Command struct {
 
 // internal message representation to abstract from message lib
 type Message struct {
-	id         string
-	timestamp  uint64
-	sourceId   string
-	sourceName string
-	fromMe     bool
+	Id          string
+	ContactId   string
+	Timestamp   uint64
+	SourceId    string
+	SourceName  string
+	SourceShort string
+	FromMe      bool
+	Text        string
 }
 
 // internal contact representation to abstract from message lib
 type Contact struct {
-	id   string
-	name string
+	Id      string
+	IsGroup bool
+	Name    string
 }
 
 const GROUPSUFFIX = "@g.us"

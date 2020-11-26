@@ -6,6 +6,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/normen/whatscli/config"
@@ -15,11 +16,11 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.9.5"
+var VERSION string = "v0.9.6"
 
 var sndTxt string = ""
-var currentReceiver string = ""
-var curRegions []string
+var currentReceiver messages.Contact = messages.Contact{}
+var curRegions []messages.Message
 
 var textView *tview.TextView
 var treeView *tview.TreeView
@@ -143,13 +144,13 @@ func MakeTree() *tview.TreeView {
 	treeView.SetChangedFunc(func(node *tview.TreeNode) {
 		reference := node.GetReference()
 		if reference == nil {
-			SetDisplayedContact("")
+			SetDisplayedContact(messages.Contact{"", false, ""})
 			return // Selecting the root node does nothing.
 		}
 		children := node.GetChildren()
 		if len(children) == 0 {
 			// Load and show files in this directory.
-			recv := reference.(string)
+			recv := reference.(messages.Contact)
 			SetDisplayedContact(recv)
 		} else {
 			// Collapse if visible, expand if collapsed.
@@ -163,7 +164,7 @@ func handleFocusMessage(ev *tcell.EventKey) *tcell.EventKey {
 	if !textView.HasFocus() {
 		app.SetFocus(textView)
 		if curRegions != nil && len(curRegions) > 0 {
-			textView.Highlight(curRegions[len(curRegions)-1])
+			textView.Highlight(curRegions[len(curRegions)-1].Id)
 		}
 	}
 	return nil
@@ -236,7 +237,7 @@ func handleMessagesUp(ev *tcell.EventKey) *tcell.EventKey {
 			textView.Highlight(newId)
 		}
 	} else {
-		textView.Highlight(curRegions[len(curRegions)-1])
+		textView.Highlight(curRegions[len(curRegions)-1].Id)
 	}
 	textView.ScrollToHighlight()
 	return nil
@@ -253,7 +254,7 @@ func handleMessagesDown(ev *tcell.EventKey) *tcell.EventKey {
 			textView.Highlight(newId)
 		}
 	} else {
-		textView.Highlight(curRegions[0])
+		textView.Highlight(curRegions[0].Id)
 	}
 	textView.ScrollToHighlight()
 	return nil
@@ -263,7 +264,7 @@ func handleMessagesLast(ev *tcell.EventKey) *tcell.EventKey {
 	if curRegions == nil || len(curRegions) == 0 {
 		return nil
 	}
-	textView.Highlight(curRegions[len(curRegions)-1])
+	textView.Highlight(curRegions[len(curRegions)-1].Id)
 	textView.ScrollToHighlight()
 	return nil
 }
@@ -272,7 +273,7 @@ func handleMessagesFirst(ev *tcell.EventKey) *tcell.EventKey {
 	if curRegions == nil || len(curRegions) == 0 {
 		return nil
 	}
-	textView.Highlight(curRegions[0])
+	textView.Highlight(curRegions[0].Id)
 	textView.ScrollToHighlight()
 	return nil
 }
@@ -422,7 +423,7 @@ func EnterCommand(key tcell.Key) {
 	// no command, send as message
 	msg := messages.Command{
 		Name:   "send",
-		Params: []string{currentReceiver, sndTxt},
+		Params: []string{currentReceiver.Id, sndTxt},
 	}
 	sessionManager.CommandChannel <- msg
 	textInput.SetText("")
@@ -434,17 +435,17 @@ func GetOffsetMsgId(curId string, offset int) string {
 		return ""
 	}
 	for idx, val := range curRegions {
-		if val == curId {
+		if val.Id == curId {
 			arrPos := idx + offset
 			if len(curRegions) > arrPos && arrPos >= 0 {
-				return curRegions[arrPos]
+				return curRegions[arrPos].Id
 			}
 		}
 	}
 	if offset > 0 {
-		return curRegions[0]
+		return curRegions[0].Id
 	} else {
-		return curRegions[len(curRegions)-1]
+		return curRegions[len(curRegions)-1].Id
 	}
 }
 
@@ -531,29 +532,61 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 }
 
 // sets the current contact, loads text from storage to TextView
-func SetDisplayedContact(wid string) {
+func SetDisplayedContact(wid messages.Contact) {
+	//TODO: how to get contact to set
 	currentReceiver = wid
 	textView.Clear()
-	textView.SetTitle(sessionManager.GetIdName(wid))
-	sessionManager.CommandChannel <- messages.Command{"select", []string{currentReceiver}}
+	textView.SetTitle(wid.Name)
+	sessionManager.CommandChannel <- messages.Command{"select", []string{currentReceiver.Id}}
+}
+
+// get a string representation of all messages for contact
+func getMessagesString(msgs []messages.Message) string {
+	out := ""
+	for _, msg := range msgs {
+		out += getTextMessageString(&msg)
+		out += "\n"
+	}
+	return out
+}
+
+// create a formatted string with regions based on message ID from a text message
+func getTextMessageString(msg *messages.Message) string {
+	colorMe := config.Config.Colors.ChatMe
+	colorContact := config.Config.Colors.ChatContact
+	out := ""
+	text := tview.Escape(msg.Text)
+	tim := time.Unix(int64(msg.Timestamp), 0)
+	time := tim.Format("02-01-06 15:04:05")
+	out += "[\""
+	out += msg.Id
+	out += "\"]"
+	if msg.FromMe { //msg from me
+		out += "[-::d](" + time + ") [" + colorMe + "::b]Me: [-::-]" + text
+	} else { // message from others
+		out += "[-::d](" + time + ") [" + colorContact + "::b]" + msg.SourceShort + ": [-::-]" + text
+	}
+	out += "[\"\"]"
+	return out
 }
 
 type UiHandler struct{}
 
-func (u UiHandler) NewMessage(msg string, id string) {
+func (u UiHandler) NewMessage(msg messages.Message) {
 	//TODO: its stupid to "go" this as its supposed to run
 	//on the ui thread anyway. But QueueUpdate blocks...?
 	go app.QueueUpdateDraw(func() {
-		curRegions = append(curRegions, id)
-		PrintText(msg)
+		curRegions = append(curRegions, msg)
+		PrintText(getTextMessageString(&msg))
 	})
 }
 
-func (u UiHandler) NewScreen(screen string, ids []string) {
+func (u UiHandler) NewScreen(msgs []messages.Message) {
 	go app.QueueUpdateDraw(func() {
 		textView.Clear()
+		screen := getMessagesString(msgs)
 		textView.SetText(screen)
-		curRegions = ids
+		curRegions = msgs
 		if screen == "" {
 			PrintHelp()
 		}
@@ -561,14 +594,14 @@ func (u UiHandler) NewScreen(screen string, ids []string) {
 }
 
 // loads the contact data from storage to the TreeView
-func (u UiHandler) SetContacts(ids []string) {
+func (u UiHandler) SetContacts(ids []messages.Contact) {
 	go app.QueueUpdateDraw(func() {
 		contactRoot.ClearChildren()
 		for _, element := range ids {
-			node := tview.NewTreeNode(sessionManager.GetIdName(element)).
+			node := tview.NewTreeNode(element.Name).
 				SetReference(element).
 				SetSelectable(true)
-			if strings.Count(element, messages.CONTACTSUFFIX) > 0 {
+			if element.IsGroup {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
 			} else {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListGroup])
