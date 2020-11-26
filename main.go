@@ -300,6 +300,9 @@ func LoadShortcuts() {
 	if err := keyBindings.Set(config.Config.Keymap.SwitchPanels, handleSwitchPanels); err != nil {
 		PrintErrorMsg("switch_panels:", err)
 	}
+	if err := keyBindings.Set(config.Config.Keymap.CommandRead, handleCommand("read")); err != nil {
+		PrintErrorMsg("command_read:", err)
+	}
 	if err := keyBindings.Set(config.Config.Keymap.CommandBacklog, handleCommand("backlog")); err != nil {
 		PrintErrorMsg("command_backlog:", err)
 	}
@@ -373,6 +376,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Chat[-::-]")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.Config.Keymap.CommandBacklog, "[::-] = load next 10 previous messages")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"read [::-]or[::b]", config.Config.Keymap.CommandRead, "[::-] = mark new messages in chat as read")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"upload[::-] /path/to/file  = Upload any file as document")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendimage[::-] /path/to/file  = Send image message")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendvideo[::-] /path/to/file  = Send video message")
@@ -381,6 +385,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Configuration:")
 	fmt.Fprintln(textView, " ->", config.GetConfigFilePath())
+	fmt.Fprintln(textView, "")
 }
 
 // called when text is entered by the user
@@ -601,7 +606,7 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 				name = strings.TrimSuffix(strings.TrimSuffix(element.Id, messages.GROUPSUFFIX), messages.CONTACTSUFFIX)
 			}
 			if element.Unread > 0 {
-				name += " ([yellow]" + fmt.Sprint(element.Unread) + "[-])"
+				name += " ([" + config.Config.Colors.UnreadCount + "]" + fmt.Sprint(element.Unread) + "[-])"
 				//tim := time.Unix(element.LastMessage, 0)
 				//sin := time.Since(tim)
 				//since := fmt.Sprintf("%s", sin)

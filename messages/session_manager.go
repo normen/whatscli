@@ -107,8 +107,7 @@ func (sm *SessionManager) runManager() error {
 					}
 				}
 			}
-			chats := sm.db.GetChatIds()
-			sm.uiHandler.SetChats(chats)
+			sm.uiHandler.SetChats(sm.db.GetChatIds())
 		case other := <-sm.OtherChannel:
 			sm.db.AddOtherMessage(&other)
 		case c := <-sm.ContactChannel:
@@ -124,19 +123,21 @@ func (sm *SessionManager) runManager() error {
 				contact.Short = c.Notify
 			}
 			sm.db.AddContact(contact)
+			sm.uiHandler.SetChats(sm.db.GetChatIds())
 		case c := <-sm.ChatChannel:
 			if c.IsMarkedSpam == "false" {
 				isGroup := strings.Contains(c.Jid, GROUPSUFFIX)
 				unread, _ := strconv.ParseInt(c.Unread, 10, 0)
-				last, _ := strconv.ParseInt(c.LastMessageTime, 10, 0)
+				last, _ := strconv.ParseInt(c.LastMessageTime, 10, 64)
 				chat := Chat{
 					c.Jid,
 					isGroup,
 					c.Name,
-					unread,
+					int(unread),
 					last,
 				}
 				sm.db.AddChat(chat)
+				sm.uiHandler.SetChats(sm.db.GetChatIds())
 			}
 		case command := <-sm.CommandChannel:
 			sm.execCommand(command)
@@ -146,6 +147,7 @@ func (sm *SessionManager) runManager() error {
 			sm.statusInfo.BatteryCharge = batteryMsg.charge
 			sm.uiHandler.SetStatus(sm.statusInfo)
 		case statusMsg := <-sm.StatusChannel:
+			prevStatus := sm.statusInfo.Connected
 			if statusMsg.err != nil {
 			} else {
 				sm.statusInfo.Connected = statusMsg.connected
@@ -154,6 +156,13 @@ func (sm *SessionManager) runManager() error {
 			connected := wac.GetConnected()
 			sm.statusInfo.Connected = connected
 			sm.uiHandler.SetStatus(sm.statusInfo)
+			if prevStatus != sm.statusInfo.Connected {
+				if sm.statusInfo.Connected {
+					sm.uiHandler.PrintText("connected")
+				} else {
+					sm.uiHandler.PrintText("disconnected")
+				}
+			}
 		}
 	}
 	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
@@ -194,6 +203,7 @@ func (sm *SessionManager) login() error {
 // loginWithConnection logs in the user using a provided connection. It ries to see if a session already exists. If not, tries to create a
 // new one using qr scanned on the terminal.
 func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
+	sm.uiHandler.PrintText("connecting..")
 	if wac != nil && wac.GetConnected() {
 		wac.Disconnect()
 		sm.StatusChannel <- StatusMsg{false, nil}
@@ -254,17 +264,18 @@ func (sm *SessionManager) execCommand(command Command) {
 	default:
 		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Unknown command: [-]" + cmd)
 	case "backlog":
-		if sm.currentReceiver == "" {
-			return
-		}
-		count := 10
-		if currentMsgs, ok := sm.db.textMessages[sm.currentReceiver]; ok {
-			if len(currentMsgs) > 0 {
-				firstMsg := currentMsgs[0]
-				go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, firstMsg.Info.Id, firstMsg.Info.FromMe, false, sm)
+		if sm.currentReceiver != "" {
+			count := 10
+			if currentMsgs, ok := sm.db.textMessages[sm.currentReceiver]; ok {
+				if len(currentMsgs) > 0 {
+					firstMsg := currentMsgs[0]
+					go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, firstMsg.Info.Id, firstMsg.Info.FromMe, false, sm)
+				}
+			} else {
+				go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, "", false, false, sm)
 			}
 		} else {
-			go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, "", false, false, sm)
+			sm.printCommandUsage("backlog", "-> only works in a chat")
 		}
 	case "login":
 		sm.uiHandler.PrintError(sm.login())
@@ -288,11 +299,22 @@ func (sm *SessionManager) execCommand(command Command) {
 		} else {
 			sm.printCommandUsage("select", "[chat-id[]")
 		}
-	case "markread":
-		if checkParam(command.Params, 1) {
-			sm.setCurrentReceiver(command.Params[0])
+	case "read":
+		if sm.currentReceiver != "" {
+			// need to send message id, so get all (unread count)
+			// recent messages and send "read"
+			if chat, ok := sm.db.chats[sm.currentReceiver]; ok {
+				count := chat.Unread
+				msgs := sm.db.GetMessages(chat.Id)
+				length := len(msgs)
+				for idx, msg := range msgs {
+					if idx >= length-count {
+						sm.getConnection().Read(chat.Id, msg.Info.Id)
+					}
+				}
+			}
 		} else {
-			sm.printCommandUsage("markread", "[chat-id[]")
+			sm.printCommandUsage("read", "-> only works in a chat")
 		}
 	case "info":
 		if checkParam(command.Params, 1) {
@@ -344,6 +366,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		}
 	case "upload":
 		if sm.currentReceiver == "" {
+			sm.printCommandUsage("upload", "-> only works in a chat")
 			return
 		}
 		var err error
@@ -371,6 +394,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		sm.uiHandler.PrintError(err)
 	case "sendimage":
 		if sm.currentReceiver == "" {
+			sm.printCommandUsage("sendimage", "-> only works in a chat")
 			return
 		}
 		var err error
@@ -398,6 +422,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		sm.uiHandler.PrintError(err)
 	case "sendvideo":
 		if sm.currentReceiver == "" {
+			sm.printCommandUsage("sendvideo", "-> only works in a chat")
 			return
 		}
 		var err error
@@ -425,6 +450,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		sm.uiHandler.PrintError(err)
 	case "sendaudio":
 		if sm.currentReceiver == "" {
+			sm.printCommandUsage("sendaudio", "-> only works in a chat")
 			return
 		}
 		var err error
@@ -524,6 +550,7 @@ func (sm *SessionManager) getMessages(wid string) []Message {
 }
 
 // create internal message from whatsapp message
+// TODO: store these instead of generating each time
 func (sm *SessionManager) createMessage(msg *whatsapp.TextMessage) Message {
 	newMsg := Message{}
 	newMsg.Id = msg.Info.Id

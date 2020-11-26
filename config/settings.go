@@ -36,6 +36,7 @@ type Keymap struct {
 	FocusInput      string
 	FocusChats      string
 	CommandBacklog  string
+	CommandRead     string
 	CommandConnect  string
 	CommandQuit     string
 	CommandHelp     string
@@ -62,6 +63,7 @@ type Colors struct {
 	Borders         string
 	InputBackground string
 	InputText       string
+	UnreadCount     string
 	Positive        string
 	Negative        string
 }
@@ -81,6 +83,7 @@ var Config = IniFile{
 		FocusInput:      "Ctrl+Space",
 		FocusChats:      "Ctrl+e",
 		CommandBacklog:  "Ctrl+b",
+		CommandRead:     "Ctrl+n",
 		CommandConnect:  "Ctrl+r",
 		CommandQuit:     "Ctrl+q",
 		CommandHelp:     "Ctrl+?",
@@ -105,6 +108,7 @@ var Config = IniFile{
 		Borders:         "white",
 		InputBackground: "blue",
 		InputText:       "white",
+		UnreadCount:     "yellow",
 		Positive:        "green",
 		Negative:        "red",
 	},
