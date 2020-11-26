@@ -46,14 +46,14 @@ type Command struct {
 
 // internal message representation to abstract from message lib
 type Message struct {
-	Id          string
-	ContactId   string
-	Timestamp   uint64
-	SourceId    string
-	SourceName  string
-	SourceShort string
-	FromMe      bool
-	Text        string
+	Id           string
+	SourceId     string // the source of the message (group id or contact id)
+	ContactId    string
+	ContactName  string
+	ContactShort string
+	Timestamp    uint64
+	FromMe       bool
+	Text         string
 }
 
 // internal contact representation to abstract from message lib

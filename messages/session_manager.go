@@ -526,13 +526,13 @@ func (sm *SessionManager) createMessage(msg *whatsapp.TextMessage) Message {
 	newMsg.Text = msg.Text
 	if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) {
 		newMsg.ContactId = msg.Info.SenderJid
-		newMsg.SourceName = sm.getIdName(msg.Info.SenderJid)
-		newMsg.SourceShort = sm.getIdShort(msg.Info.SenderJid)
+		newMsg.ContactName = sm.getIdName(msg.Info.SenderJid)
+		newMsg.ContactShort = sm.getIdShort(msg.Info.SenderJid)
 
 	} else {
 		newMsg.ContactId = msg.Info.RemoteJid
-		newMsg.SourceName = sm.getIdName(msg.Info.RemoteJid)
-		newMsg.SourceShort = sm.getIdShort(msg.Info.RemoteJid)
+		newMsg.ContactName = sm.getIdName(msg.Info.RemoteJid)
+		newMsg.ContactShort = sm.getIdShort(msg.Info.RemoteJid)
 	}
 	return newMsg
 }
