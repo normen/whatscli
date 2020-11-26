@@ -22,8 +22,6 @@ import (
 	"github.com/normen/whatscli/qrcode"
 )
 
-// TODO: move message styling and ordering into UI, don't use strings
-
 // SessionManager deals with the connection and receives commands from the UI
 // it updates the UI accordingly
 type SessionManager struct {

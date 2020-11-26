@@ -602,9 +602,9 @@ func (u UiHandler) SetContacts(ids []messages.Contact) {
 				SetReference(element).
 				SetSelectable(true)
 			if element.IsGroup {
-				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
-			} else {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListGroup])
+			} else {
+				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
 			}
 			contactRoot.AddChild(node)
 			if element == currentReceiver {
