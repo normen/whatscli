@@ -8,6 +8,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -126,10 +127,14 @@ func (sm *SessionManager) runManager() error {
 		case c := <-sm.ChatChannel:
 			if c.IsMarkedSpam == "false" {
 				isGroup := strings.Contains(c.Jid, GROUPSUFFIX)
+				unread, _ := strconv.ParseInt(c.Unread, 10, 0)
+				last, _ := strconv.ParseInt(c.LastMessageTime, 10, 0)
 				chat := Chat{
 					c.Jid,
 					isGroup,
 					c.Name,
+					unread,
+					last,
 				}
 				sm.db.AddChat(chat)
 			}
@@ -275,13 +280,19 @@ func (sm *SessionManager) execCommand(command Command) {
 			text := strings.Join(textParams, " ")
 			sm.sendText(command.Params[0], text)
 		} else {
-			sm.printCommandUsage("send", "[user-id[] [message text[]")
+			sm.printCommandUsage("send", "[chat-id[] [message text[]")
 		}
 	case "select":
 		if checkParam(command.Params, 1) {
 			sm.setCurrentReceiver(command.Params[0])
 		} else {
-			sm.printCommandUsage("select", "[user-id[]")
+			sm.printCommandUsage("select", "[chat-id[]")
+		}
+	case "markread":
+		if checkParam(command.Params, 1) {
+			sm.setCurrentReceiver(command.Params[0])
+		} else {
+			sm.printCommandUsage("markread", "[chat-id[]")
 		}
 	case "info":
 		if checkParam(command.Params, 1) {

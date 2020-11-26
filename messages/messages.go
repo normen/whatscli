@@ -61,6 +61,9 @@ type Chat struct {
 	Id      string
 	IsGroup bool
 	Name    string
+	Unread  int64
+	//TODO: convert to uint64
+	LastMessage int64
 }
 
 type Contact struct {

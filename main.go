@@ -16,7 +16,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.9.7"
+var VERSION string = "v0.9.8"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -142,7 +142,7 @@ func MakeTree() *tview.TreeView {
 	treeView.SetChangedFunc(func(node *tview.TreeNode) {
 		reference := node.GetReference()
 		if reference == nil {
-			SetDisplayedChat(messages.Chat{"", false, ""})
+			SetDisplayedChat(messages.Chat{"", false, "", 0, 0})
 			return // Selecting the root node does nothing.
 		}
 		children := node.GetChildren()
@@ -599,6 +599,14 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 			name := element.Name
 			if name == "" {
 				name = strings.TrimSuffix(strings.TrimSuffix(element.Id, messages.GROUPSUFFIX), messages.CONTACTSUFFIX)
+			}
+			if element.Unread > 0 {
+				name += " ([yellow]" + fmt.Sprint(element.Unread) + "[-])"
+				//tim := time.Unix(element.LastMessage, 0)
+				//sin := time.Since(tim)
+				//since := fmt.Sprintf("%s", sin)
+				//time := tim.Format("02-01-06 15:04:05")
+				//name += since
 			}
 			node := tview.NewTreeNode(name).
 				SetReference(element).
