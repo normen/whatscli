@@ -2,6 +2,7 @@ package messages
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/Rhymen/go-whatsapp"
 )
@@ -11,6 +12,8 @@ type MessageDatabase struct {
 	messagesById  map[string]*whatsapp.TextMessage   // text messages stored by message ID
 	latestMessage map[string]uint64                  // last message from RemoteJid
 	otherMessages map[string]*interface{}            // other non-text messages, stored by ID
+	contacts      map[string]Contact
+	chats         map[string]Chat
 }
 
 // initialize the database
@@ -20,6 +23,8 @@ func (db *MessageDatabase) Init() {
 	db.messagesById = make(map[string]*whatsapp.TextMessage)
 	db.otherMessages = make(map[string]*interface{})
 	db.latestMessage = make(map[string]uint64)
+	db.contacts = make(map[string]Contact)
+	db.chats = make(map[string]Chat)
 }
 
 // add a text message to the database, stored by RemoteJid
@@ -66,19 +71,51 @@ func (db *MessageDatabase) AddOtherMessage(msg *interface{}) {
 	}
 }
 
+func (db *MessageDatabase) AddContact(contact Contact) {
+	db.contacts[contact.Id] = contact
+}
+
+func (db *MessageDatabase) AddChat(chat Chat) {
+	db.chats[chat.Id] = chat
+}
+
 // get an array of all chat ids
-func (db *MessageDatabase) GetContactIds() []string {
-	//var this = *db
-	keys := make([]string, len(db.textMessages))
+func (db *MessageDatabase) GetChatIds() []Chat {
+	keys := make([]Chat, len(db.chats))
 	i := 0
-	for k := range db.textMessages {
+	for _, k := range db.chats {
 		keys[i] = k
 		i++
 	}
 	sort.Slice(keys, func(i, j int) bool {
-		return db.latestMessage[keys[i]] > db.latestMessage[keys[j]]
+		return db.latestMessage[keys[i].Id] > db.latestMessage[keys[j].Id]
 	})
 	return keys
+}
+
+// gets a pretty name for a whatsapp id
+func (sm *MessageDatabase) GetIdName(id string) string {
+	if val, ok := sm.contacts[id]; ok {
+		if val.Name != "" {
+			return val.Name
+		} else if val.Short != "" {
+			return val.Short
+		}
+	}
+	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
+}
+
+// gets a short name for a whatsapp id
+func (sm *MessageDatabase) GetIdShort(id string) string {
+	if val, ok := sm.contacts[id]; ok {
+		//TODO val.notify from whatsapp??
+		if val.Short != "" {
+			return val.Short
+		} else if val.Name != "" {
+			return val.Name
+		}
+	}
+	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 }
 
 func (db *MessageDatabase) GetMessageInfo(id string) string {

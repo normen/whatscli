@@ -19,7 +19,7 @@ import (
 var VERSION string = "v0.9.7"
 
 var sndTxt string = ""
-var currentReceiver messages.Contact = messages.Contact{}
+var currentReceiver messages.Chat = messages.Chat{}
 var curRegions []messages.Message
 
 var textView *tview.TextView
@@ -28,7 +28,7 @@ var textInput *tview.InputField
 var topBar *tview.TextView
 var infoBar *tview.TextView
 
-var contactRoot *tview.TreeNode
+var chatRoot *tview.TreeNode
 var app *tview.Application
 
 var sessionManager *messages.SessionManager
@@ -128,28 +128,28 @@ func main() {
 	app.Run()
 }
 
-// creates the TreeView for contacts
+// creates the TreeView for chats
 func MakeTree() *tview.TreeView {
-	rootDir := "Contacts"
-	contactRoot = tview.NewTreeNode(rootDir).
+	rootDir := "Chats"
+	chatRoot = tview.NewTreeNode(rootDir).
 		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
 	treeView = tview.NewTreeView().
-		SetRoot(contactRoot).
-		SetCurrentNode(contactRoot)
+		SetRoot(chatRoot).
+		SetCurrentNode(chatRoot)
 	treeView.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
 
-	// If a contact was selected, open it.
+	// If a chat was selected, open it.
 	treeView.SetChangedFunc(func(node *tview.TreeNode) {
 		reference := node.GetReference()
 		if reference == nil {
-			SetDisplayedContact(messages.Contact{"", false, ""})
+			SetDisplayedChat(messages.Chat{"", false, ""})
 			return // Selecting the root node does nothing.
 		}
 		children := node.GetChildren()
 		if len(children) == 0 {
 			// Load and show files in this directory.
-			recv := reference.(messages.Contact)
-			SetDisplayedContact(recv)
+			recv := reference.(messages.Chat)
+			SetDisplayedChat(recv)
 		} else {
 			// Collapse if visible, expand if collapsed.
 			node.SetExpanded(!node.IsExpanded())
@@ -350,8 +350,8 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Global")
-	fmt.Fprintln(textView, "[::b] Up/Down[::-] = Scroll history/contacts")
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.SwitchPanels, "[::-] = Switch input/contacts")
+	fmt.Fprintln(textView, "[::b] Up/Down[::-] = Scroll history/chats")
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.SwitchPanels, "[::-] = Switch input/chats")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.FocusMessages, "[::-] = Focus message panel")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Message panel[-::-]")
@@ -529,16 +529,16 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	//infoBar.SetText("🔋: ??%")
 }
 
-// sets the current contact, loads text from storage to TextView
-func SetDisplayedContact(wid messages.Contact) {
-	//TODO: how to get contact to set
+// sets the current chat, loads text from storage to TextView
+func SetDisplayedChat(wid messages.Chat) {
+	//TODO: how to get chat to set
 	currentReceiver = wid
 	textView.Clear()
 	textView.SetTitle(wid.Name)
 	sessionManager.CommandChannel <- messages.Command{"select", []string{currentReceiver.Id}}
 }
 
-// get a string representation of all messages for contact
+// get a string representation of all messages for chat
 func getMessagesString(msgs []messages.Message) string {
 	out := ""
 	for _, msg := range msgs {
@@ -591,12 +591,16 @@ func (u UiHandler) NewScreen(msgs []messages.Message) {
 	})
 }
 
-// loads the contact data from storage to the TreeView
-func (u UiHandler) SetContacts(ids []messages.Contact) {
+// loads the chat data from storage to the TreeView
+func (u UiHandler) SetChats(ids []messages.Chat) {
 	go app.QueueUpdateDraw(func() {
-		contactRoot.ClearChildren()
+		chatRoot.ClearChildren()
 		for _, element := range ids {
-			node := tview.NewTreeNode(element.Name).
+			name := element.Name
+			if name == "" {
+				name = strings.TrimSuffix(strings.TrimSuffix(element.Id, messages.GROUPSUFFIX), messages.CONTACTSUFFIX)
+			}
+			node := tview.NewTreeNode(name).
 				SetReference(element).
 				SetSelectable(true)
 			if element.IsGroup {
@@ -604,7 +608,7 @@ func (u UiHandler) SetContacts(ids []messages.Contact) {
 			} else {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
 			}
-			contactRoot.AddChild(node)
+			chatRoot.AddChild(node)
 			if element == currentReceiver {
 				treeView.SetCurrentNode(node)
 			}

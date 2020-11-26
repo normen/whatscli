@@ -7,7 +7,7 @@ import "io"
 type UiMessageHandler interface {
 	NewMessage(Message)
 	NewScreen([]Message)
-	SetContacts([]Contact)
+	SetChats([]Chat)
 	PrintError(error)
 	PrintText(string)
 	PrintFile(string)
@@ -47,7 +47,7 @@ type Command struct {
 // internal message representation to abstract from message lib
 type Message struct {
 	Id           string
-	SourceId     string // the source of the message (group id or contact id)
+	ChatId       string // the source of the message (group id or contact id)
 	ContactId    string
 	ContactName  string
 	ContactShort string
@@ -57,10 +57,16 @@ type Message struct {
 }
 
 // internal contact representation to abstract from message lib
-type Contact struct {
+type Chat struct {
 	Id      string
 	IsGroup bool
 	Name    string
+}
+
+type Contact struct {
+	Id    string
+	Name  string
+	Short string
 }
 
 const GROUPSUFFIX = "@g.us"

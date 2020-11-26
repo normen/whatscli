@@ -26,12 +26,14 @@ import (
 // it updates the UI accordingly
 type SessionManager struct {
 	db              *MessageDatabase
-	currentReceiver string // currently selected contact for message handling
+	currentReceiver string // currently selected chat for message handling
 	uiHandler       UiMessageHandler
 	connection      *whatsapp.Conn
 	BatteryChannel  chan BatteryMsg
 	StatusChannel   chan StatusMsg
 	CommandChannel  chan Command
+	ChatChannel     chan whatsapp.Chat
+	ContactChannel  chan whatsapp.Contact
 	TextChannel     chan whatsapp.TextMessage
 	OtherChannel    chan interface{}
 	statusInfo      SessionStatus
@@ -47,6 +49,8 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.BatteryChannel = make(chan BatteryMsg, 10)
 	sm.StatusChannel = make(chan StatusMsg, 10)
 	sm.CommandChannel = make(chan Command, 10)
+	sm.ChatChannel = make(chan whatsapp.Chat, 10)
+	sm.ContactChannel = make(chan whatsapp.Contact, 10)
 	sm.TextChannel = make(chan whatsapp.TextMessage, 10)
 	sm.OtherChannel = make(chan interface{}, 10)
 }
@@ -79,12 +83,12 @@ func (sm *SessionManager) runManager() error {
 					screen := sm.getMessages(sm.currentReceiver)
 					sm.uiHandler.NewScreen(screen)
 				}
-				// notify if contact is in focus and we didn't send a message recently
+				// notify if chat is in focus and we didn't send a message recently
 				// TODO: move to UI (when UI has time in messages)
 				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 						if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
-							err := beeep.Notify(sm.getIdShort(msg.Info.RemoteJid), msg.Text, "")
+							err := beeep.Notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
 							if err != nil {
 								sm.uiHandler.PrintError(err)
 							}
@@ -95,22 +99,40 @@ func (sm *SessionManager) runManager() error {
 				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 					// notify if message is younger than 30 sec and not in focus
 					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
-						err := beeep.Notify(sm.getIdShort(msg.Info.RemoteJid), msg.Text, "")
+						err := beeep.Notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
 						if err != nil {
 							sm.uiHandler.PrintError(err)
 						}
 					}
 				}
 			}
-			//TODO: create here this way? -> updates list quickly
-			contactIds := sm.db.GetContactIds()
-			contacts := make([]Contact, len(contactIds))
-			for idx, id := range contactIds {
-				contacts[idx] = Contact{id, strings.Contains(id, GROUPSUFFIX), sm.getIdName(id)}
-			}
-			sm.uiHandler.SetContacts(contacts)
+			chats := sm.db.GetChatIds()
+			sm.uiHandler.SetChats(chats)
 		case other := <-sm.OtherChannel:
 			sm.db.AddOtherMessage(&other)
+		case c := <-sm.ContactChannel:
+			contact := Contact{
+				c.Jid,
+				c.Name,
+				c.Short,
+			}
+			if contact.Name == "" && c.Notify != "" {
+				contact.Name = c.Notify
+			}
+			if contact.Short == "" && c.Notify != "" {
+				contact.Short = c.Notify
+			}
+			sm.db.AddContact(contact)
+		case c := <-sm.ChatChannel:
+			if c.IsMarkedSpam == "false" {
+				isGroup := strings.Contains(c.Jid, GROUPSUFFIX)
+				chat := Chat{
+					c.Jid,
+					isGroup,
+					c.Name,
+				}
+				sm.db.AddChat(chat)
+			}
 		case command := <-sm.CommandChannel:
 			sm.execCommand(command)
 		case batteryMsg := <-sm.BatteryChannel:
@@ -134,7 +156,7 @@ func (sm *SessionManager) runManager() error {
 	return nil
 }
 
-// set the currently selected contact
+// set the currently selected chat
 func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
 	screen := sm.getMessages(id)
@@ -236,6 +258,8 @@ func (sm *SessionManager) execCommand(command Command) {
 				firstMsg := currentMsgs[0]
 				go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, firstMsg.Info.Id, firstMsg.Info.FromMe, false, sm)
 			}
+		} else {
+			go sm.getConnection().LoadChatMessages(sm.currentReceiver, count, "", false, false, sm)
 		}
 	case "login":
 		sm.uiHandler.PrintError(sm.login())
@@ -478,35 +502,7 @@ func checkParam(arr []string, length int) bool {
 	return true
 }
 
-// gets a pretty name for a whatsapp id
-func (sm *SessionManager) getIdName(id string) string {
-	if val, ok := sm.getConnection().Store.Contacts[id]; ok {
-		if val.Name != "" {
-			return val.Name
-		} else if val.Short != "" {
-			return val.Short
-		} else if val.Notify != "" {
-			return val.Notify
-		}
-	}
-	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
-}
-
-// gets a short name for a whatsapp id
-func (sm *SessionManager) getIdShort(id string) string {
-	if val, ok := sm.getConnection().Store.Contacts[id]; ok {
-		if val.Short != "" {
-			return val.Short
-		} else if val.Name != "" {
-			return val.Name
-		} else if val.Notify != "" {
-			return val.Notify
-		}
-	}
-	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
-}
-
-// get all messages for one contact id
+// get all messages for one chat id
 func (sm *SessionManager) getMessages(wid string) []Message {
 	msgs := sm.db.GetMessages(wid)
 	ids := []Message{}
@@ -520,23 +516,22 @@ func (sm *SessionManager) getMessages(wid string) []Message {
 func (sm *SessionManager) createMessage(msg *whatsapp.TextMessage) Message {
 	newMsg := Message{}
 	newMsg.Id = msg.Info.Id
-	newMsg.SourceId = msg.Info.RemoteJid
+	newMsg.ChatId = msg.Info.RemoteJid
 	newMsg.FromMe = msg.Info.FromMe
 	newMsg.Timestamp = msg.Info.Timestamp
 	newMsg.Text = msg.Text
 	if strings.Contains(msg.Info.RemoteJid, STATUSSUFFIX) {
 		newMsg.ContactId = msg.Info.SenderJid
-		newMsg.ContactName = sm.getIdName(msg.Info.SenderJid)
-		newMsg.ContactShort = sm.getIdShort(msg.Info.SenderJid)
+		newMsg.ContactName = sm.db.GetIdName(msg.Info.SenderJid)
+		newMsg.ContactShort = sm.db.GetIdShort(msg.Info.SenderJid)
 	} else if strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX) {
 		newMsg.ContactId = msg.Info.SenderJid
-		newMsg.ContactName = sm.getIdName(msg.Info.SenderJid)
-		newMsg.ContactShort = sm.getIdShort(msg.Info.SenderJid)
-
+		newMsg.ContactName = sm.db.GetIdName(msg.Info.SenderJid)
+		newMsg.ContactShort = sm.db.GetIdShort(msg.Info.SenderJid)
 	} else {
 		newMsg.ContactId = msg.Info.RemoteJid
-		newMsg.ContactName = sm.getIdName(msg.Info.RemoteJid)
-		newMsg.ContactShort = sm.getIdShort(msg.Info.RemoteJid)
+		newMsg.ContactName = sm.db.GetIdName(msg.Info.RemoteJid)
+		newMsg.ContactShort = sm.db.GetIdShort(msg.Info.RemoteJid)
 	}
 	return newMsg
 }
@@ -735,12 +730,24 @@ func (sm *SessionManager) HandleAudioMessage(message whatsapp.AudioMessage) {
 // add contact info to database (not needed, internal db of connection is used)
 func (sm *SessionManager) HandleNewContact(contact whatsapp.Contact) {
 	// redundant, wac has contacts
-	//contactChannel <- contact
+	sm.ContactChannel <- contact
 }
 
 // handle battery messages
 func (sm *SessionManager) HandleBatteryMessage(msg whatsapp.BatteryMessage) {
 	sm.BatteryChannel <- BatteryMsg{msg.Percentage, msg.Plugged, msg.Powersave}
+}
+
+func (sm *SessionManager) HandleContactList(contacts []whatsapp.Contact) {
+	for _, c := range contacts {
+		sm.ContactChannel <- c
+	}
+}
+
+func (sm *SessionManager) HandleChatList(chats []whatsapp.Chat) {
+	for _, c := range chats {
+		sm.ChatChannel <- c
+	}
 }
 
 // helper to save an attachment and open it if specified
