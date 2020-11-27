@@ -85,10 +85,11 @@ func (sm *SessionManager) runManager() error {
 					sm.uiHandler.NewScreen(screen)
 				}
 				// notify if chat is in focus and we didn't send a message recently
-				// TODO: move to UI (when UI has time in messages)
-				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
-					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
-						if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
+				// TODO: move notify to UI
+				if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+					if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
+						sm.db.NewUnreadChat(msg.Info.RemoteJid)
+						if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 							err := beeep.Notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
 							if err != nil {
 								sm.uiHandler.PrintError(err)
@@ -97,9 +98,10 @@ func (sm *SessionManager) runManager() error {
 					}
 				}
 			} else {
-				if config.Config.General.EnableNotifications && !msg.Info.FromMe {
-					// notify if message is younger than 30 sec and not in focus
-					if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+				// notify if message is younger than 30 sec and not in focus
+				if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
+					sm.db.NewUnreadChat(msg.Info.RemoteJid)
+					if config.Config.General.EnableNotifications && !msg.Info.FromMe {
 						err := beeep.Notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
 						if err != nil {
 							sm.uiHandler.PrintError(err)
@@ -324,6 +326,9 @@ func (sm *SessionManager) execCommand(command Command) {
 						sm.getConnection().Read(chat.Id, msg.Info.Id)
 					}
 				}
+				chat.Unread = 0
+				sm.db.chats[sm.currentReceiver] = chat
+				sm.uiHandler.SetChats(sm.db.GetChatIds())
 			}
 		} else {
 			sm.printCommandUsage("read", "-> only works in a chat")
@@ -798,6 +803,10 @@ func (sm *SessionManager) HandleChatList(chats []whatsapp.Chat) {
 	for _, c := range chats {
 		sm.ChatChannel <- c
 	}
+}
+
+func (sm *SessionManager) HandleJsonMessage(message string) {
+	//sm.uiHandler.PrintText(message)
 }
 
 // helper to save an attachment and open it if specified

@@ -22,8 +22,7 @@ Things that work.
 This is a WIP and mainly meant for my personal use. Heres some things you might expect to work that don't. Plus some other things I should mention.
 
 - Only shows existing chats
-- No unread message count
-- No proper connection drop handling
+- No auto-reconnect when connection drops
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when FaceBook changes stuff in their web app
 
 ## Installation / Usage

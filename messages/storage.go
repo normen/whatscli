@@ -41,6 +41,18 @@ func (db *MessageDatabase) AddTextMessage(msg *whatsapp.TextMessage) bool {
 		db.latestMessage[wid] = msg.Info.Timestamp
 		didNew = true
 	}
+	//do we know this chat? if not add
+	if _, ok := db.chats[msg.Info.RemoteJid]; !ok {
+		//don't have this chat!
+		isGroup := strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX)
+		db.chats[msg.Info.RemoteJid] = Chat{
+			msg.Info.RemoteJid,
+			isGroup,
+			db.GetIdName(msg.Info.RemoteJid),
+			1,
+			int64(msg.Info.Timestamp),
+		}
+	}
 	//check if message exists, ignore otherwise
 	if _, ok := db.messagesById[msg.Info.Id]; !ok {
 		db.messagesById[msg.Info.Id] = msg
@@ -50,6 +62,13 @@ func (db *MessageDatabase) AddTextMessage(msg *whatsapp.TextMessage) bool {
 		})
 	}
 	return didNew
+}
+
+func (db *MessageDatabase) NewUnreadChat(id string) {
+	if chat, ok := db.chats[id]; ok {
+		chat.Unread++
+		db.chats[id] = chat
+	}
 }
 
 // add audio/video/image/doc message, stored by message id

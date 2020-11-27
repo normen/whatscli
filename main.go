@@ -258,6 +258,15 @@ func handleMessagesDown(ev *tcell.EventKey) *tcell.EventKey {
 	return nil
 }
 
+func handleChatPanelUp(ev *tcell.EventKey) *tcell.EventKey {
+	//TODO: scroll selection in treeView? or chatRoot? How?
+	return ev
+}
+
+func handleChatPanelDown(ev *tcell.EventKey) *tcell.EventKey {
+	return ev
+}
+
 func handleMessagesLast(ev *tcell.EventKey) *tcell.EventKey {
 	if curRegions == nil || len(curRegions) == 0 {
 		return nil
@@ -343,6 +352,10 @@ func LoadShortcuts() {
 	keysMessages.SetRune(tcell.ModNone, 'g', handleMessagesFirst)
 	keysMessages.SetRune(tcell.ModNone, 'G', handleMessagesLast)
 	textView.SetInputCapture(keysMessages.Capture)
+	keysChatPanel := cbind.NewConfiguration()
+	keysChatPanel.SetRune(tcell.ModCtrl, 'u', handleChatPanelUp)
+	keysChatPanel.SetRune(tcell.ModCtrl, 'd', handleChatPanelDown)
+	treeView.SetInputCapture(keysChatPanel.Capture)
 }
 
 // prints help to chat view
@@ -600,6 +613,7 @@ func (u UiHandler) NewScreen(msgs []messages.Message) {
 func (u UiHandler) SetChats(ids []messages.Chat) {
 	go app.QueueUpdateDraw(func() {
 		chatRoot.ClearChildren()
+		oldId := currentReceiver.Id
 		for _, element := range ids {
 			name := element.Name
 			if name == "" {
@@ -621,8 +635,12 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 			} else {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
 			}
+			// store new currentReceiver, else the selection on the left goes off
+			if element.Id == oldId {
+				currentReceiver = element
+			}
 			chatRoot.AddChild(node)
-			if element == currentReceiver {
+			if element.Id == currentReceiver.Id {
 				treeView.SetCurrentNode(node)
 			}
 		}
