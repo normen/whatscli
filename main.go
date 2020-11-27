@@ -201,6 +201,16 @@ func handleCommand(command string) func(ev *tcell.EventKey) *tcell.EventKey {
 	}
 }
 
+func handleCopyUser(ev *tcell.EventKey) *tcell.EventKey {
+	if hls := textView.GetHighlights(); len(hls) > 0 {
+		sessionManager.CommandChannel <- messages.Command{"copyuser", []string{hls[0]}}
+		ResetMsgSelection()
+	} else if currentReceiver.Id != "" {
+		sessionManager.CommandChannel <- messages.Command{"copyuser", nil}
+	}
+	return nil
+}
+
 func handleQuit(ev *tcell.EventKey) *tcell.EventKey {
 	sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
 	app.Stop()
@@ -312,6 +322,9 @@ func LoadShortcuts() {
 	if err := keyBindings.Set(config.Config.Keymap.CommandRead, handleCommand("read")); err != nil {
 		PrintErrorMsg("command_read:", err)
 	}
+	if err := keyBindings.Set(config.Config.Keymap.CommandCopyuser, handleCopyUser); err != nil {
+		PrintErrorMsg("command_copyuser:", err)
+	}
 	if err := keyBindings.Set(config.Config.Keymap.CommandBacklog, handleCommand("backlog")); err != nil {
 		PrintErrorMsg("command_backlog:", err)
 	}
@@ -331,6 +344,9 @@ func LoadShortcuts() {
 	}
 	if err := keysMessages.Set(config.Config.Keymap.MessageOpen, handleMessageCommand("open")); err != nil {
 		PrintErrorMsg("message_open:", err)
+	}
+	if err := keysMessages.Set(config.Config.Keymap.CommandCopyuser, handleCopyUser); err != nil {
+		PrintErrorMsg("command_copyuser:", err)
 	}
 	if err := keysMessages.Set(config.Config.Keymap.MessageShow, handleMessageCommand("show")); err != nil {
 		PrintErrorMsg("message_show:", err)
@@ -369,6 +385,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = Scroll history/chats")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.SwitchPanels, "[::-] = Switch input/chats")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.FocusMessages, "[::-] = Focus message panel")
+	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.CommandCopyuser, "[::-] = Copy selected user id")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Message panel[-::-]")
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = select message")

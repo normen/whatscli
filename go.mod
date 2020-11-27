@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/Rhymen/go-whatsapp v0.1.1
 	github.com/adrg/xdg v0.2.3
+	github.com/atotto/clipboard v0.1.2
 	github.com/gabriel-vasile/mimetype v1.1.2
 	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
 	github.com/gen2brain/beeep v0.0.0-20200526185328-e9c15c258e28

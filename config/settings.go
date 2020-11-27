@@ -37,6 +37,7 @@ type Keymap struct {
 	FocusChats      string
 	CommandBacklog  string
 	CommandRead     string
+	CommandCopyuser string
 	CommandConnect  string
 	CommandQuit     string
 	CommandHelp     string
@@ -84,6 +85,7 @@ var Config = IniFile{
 		FocusChats:      "Ctrl+e",
 		CommandBacklog:  "Ctrl+b",
 		CommandRead:     "Ctrl+n",
+		CommandCopyuser: "Ctrl+c",
 		CommandConnect:  "Ctrl+r",
 		CommandQuit:     "Ctrl+q",
 		CommandHelp:     "Ctrl+?",
