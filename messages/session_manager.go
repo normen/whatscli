@@ -709,7 +709,6 @@ func (sm *SessionManager) sendText(wid string, text string) {
 
 // HandleError implements the error handler interface for go-whatsapp
 func (sm *SessionManager) HandleError(err error) {
-	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]go-whatsapp reported an error:[-]")
 	sm.uiHandler.PrintError(err)
 	statusMsg := StatusMsg{false, err}
 	sm.StatusChannel <- statusMsg
