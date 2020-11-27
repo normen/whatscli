@@ -2,6 +2,7 @@ package messages
 
 import (
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -544,8 +545,9 @@ func (sm *SessionManager) execCommand(command Command) {
 		}
 	case "leave":
 		groupId := sm.currentReceiver
-		if checkParam(command.Params, 1) {
-			groupId = command.Params[0]
+		if strings.Index(groupId, GROUPSUFFIX) < 0 {
+			sm.uiHandler.PrintText("not a group")
+			return
 		}
 		wac := sm.getConnection()
 		var err error
@@ -553,6 +555,99 @@ func (sm *SessionManager) execCommand(command Command) {
 		if err == nil {
 			sm.uiHandler.PrintText("left group " + groupId)
 		}
+		sm.uiHandler.PrintError(err)
+	case "create":
+		if !checkParam(command.Params, 1) {
+			sm.printCommandUsage("create", "[user-id[] [user-id[] New Group Subject")
+			sm.printCommandUsage("create", "New Group Subject")
+			return
+		}
+		// first params are users if ending in CONTACTSUFFIX, rest is name
+		users := []string{}
+		idx := 0
+		size := len(command.Params)
+		for idx = 0; idx < size && strings.Index(command.Params[idx], CONTACTSUFFIX) > 0; idx++ {
+			users = append(users, command.Params[idx])
+		}
+		name := ""
+		if len(command.Params) > idx {
+			name = strings.Join(command.Params[idx:], " ")
+		}
+		wac := sm.getConnection()
+		var err error
+		var groupId <-chan string
+		groupId, err = wac.CreateGroup(name, users)
+		if err == nil {
+			sm.uiHandler.PrintText("creating new group " + name)
+			resultInfo := <-groupId
+			//{"status":200,"gid":"491600000009-0606000436@g.us","participants":[{"491700000000@c.us":{"code":"200"}},{"4917600000001@c.us":{"code": "200"}}]}
+			var result map[string]interface{}
+			json.Unmarshal([]byte(resultInfo), &result)
+			newChatId := result["gid"].(string)
+			sm.uiHandler.PrintText("got new Id " + newChatId)
+			newChat := Chat{}
+			newChat.Id = newChatId
+			newChat.Name = name
+			newChat.IsGroup = true
+			sm.db.chats[newChatId] = newChat
+			sm.uiHandler.SetChats(sm.db.GetChatIds())
+		}
+		sm.uiHandler.PrintError(err)
+	case "add":
+		groupId := sm.currentReceiver
+		if strings.Index(groupId, GROUPSUFFIX) < 0 {
+			sm.uiHandler.PrintText("not a group")
+			return
+		}
+		if !checkParam(command.Params, 1) {
+			sm.printCommandUsage("add", "[user-id[]")
+			return
+		}
+		wac := sm.getConnection()
+		var err error
+		_, err = wac.AddMember(groupId, command.Params)
+		if err == nil {
+			sm.uiHandler.PrintText("added new members for " + groupId)
+		}
+		sm.uiHandler.PrintError(err)
+	case "admin":
+		groupId := sm.currentReceiver
+		if strings.Index(groupId, GROUPSUFFIX) < 0 {
+			sm.uiHandler.PrintText("not a group")
+			return
+		}
+		if !checkParam(command.Params, 1) {
+			sm.printCommandUsage("admin", "[user-id[]")
+			return
+		}
+		wac := sm.getConnection()
+		var err error
+		_, err = wac.SetAdmin(groupId, command.Params)
+		if err == nil {
+			sm.uiHandler.PrintText("added admin for " + groupId)
+		}
+		sm.uiHandler.PrintError(err)
+	case "subject":
+		groupId := sm.currentReceiver
+		if strings.Index(groupId, GROUPSUFFIX) < 0 {
+			sm.uiHandler.PrintText("not a group")
+			return
+		}
+		if !checkParam(command.Params, 1) || groupId == "" {
+			sm.printCommandUsage("subject", "new-subject -> in group chat")
+			return
+		}
+		name := strings.Join(command.Params, " ")
+		wac := sm.getConnection()
+		var err error
+		_, err = wac.UpdateGroupSubject(name, groupId)
+		if err == nil {
+			sm.uiHandler.PrintText("updated subject for " + groupId)
+		}
+		newChat := sm.db.chats[groupId]
+		newChat.Name = name
+		sm.db.chats[groupId] = newChat
+		sm.uiHandler.SetChats(sm.db.GetChatIds())
 		sm.uiHandler.PrintError(err)
 	case "colorlist":
 		out := ""

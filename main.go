@@ -16,7 +16,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v0.9.9"
+var VERSION string = "v1.0.0"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -385,7 +385,6 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = Scroll history/chats")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.SwitchPanels, "[::-] = Switch input/chats")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.FocusMessages, "[::-] = Focus message panel")
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.CommandCopyuser, "[::-] = Copy selected user id")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::-]Message panel[-::-]")
 	fmt.Fprintln(textView, "[::b] Up/Down[::-] = select message")
@@ -411,7 +410,14 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendimage[::-] /path/to/file  = Send image message")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendvideo[::-] /path/to/file  = Send video message")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendaudio[::-] /path/to/file  = Send audio message")
+	fmt.Fprintln(textView, "")
+	fmt.Fprintln(textView, "[-::-]Groups[-::-]")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"leave[::-]  = Leave group")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"create[::-] [user-id[] [user-id[] Group Subject  = Create group with users")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"add[::-] [user-id[]  = Add user to group")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"admin[::-] [user-id[]  = Set admin role for user in group")
+	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"subject[::-] New Subject  = Change subject of group")
+	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.CommandCopyuser, "[::-]to copy a selected user id)")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Configuration:")
 	fmt.Fprintln(textView, " ->", config.GetConfigFilePath())
