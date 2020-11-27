@@ -181,7 +181,12 @@ func (sm *SessionManager) setCurrentReceiver(id string) {
 func (sm *SessionManager) getConnection() *whatsapp.Conn {
 	var wac *whatsapp.Conn
 	if sm.connection == nil {
-		wacc, err := whatsapp.NewConn(5 * time.Second)
+		options := &whatsapp.Options{
+			Timeout:         5 * time.Second,
+			LongClientName:  "WhatsCLI Client",
+			ShortClientName: "whatscli",
+		}
+		wacc, err := whatsapp.NewConnWithOptions(options)
 		if err != nil {
 			return nil
 		}
@@ -253,7 +258,9 @@ func (sm *SessionManager) disconnect() error {
 
 // logout logs out the user, deletes session file
 func (ub *SessionManager) logout() error {
-	ub.getConnection().Disconnect()
+	err := ub.getConnection().Logout()
+	ub.StatusChannel <- StatusMsg{false, err}
+	ub.uiHandler.PrintText("removing login data..")
 	return removeSession()
 }
 
