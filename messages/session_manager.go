@@ -610,6 +610,40 @@ func (sm *SessionManager) execCommand(command Command) {
 			sm.uiHandler.PrintText("added new members for " + groupId)
 		}
 		sm.uiHandler.PrintError(err)
+	case "remove":
+		groupId := sm.currentReceiver
+		if strings.Index(groupId, GROUPSUFFIX) < 0 {
+			sm.uiHandler.PrintText("not a group")
+			return
+		}
+		if !checkParam(command.Params, 1) {
+			sm.printCommandUsage("remove", "[user-id[]")
+			return
+		}
+		wac := sm.getConnection()
+		var err error
+		_, err = wac.RemoveMember(groupId, command.Params)
+		if err == nil {
+			sm.uiHandler.PrintText("removed from " + groupId)
+		}
+		sm.uiHandler.PrintError(err)
+	case "removeadmin":
+		groupId := sm.currentReceiver
+		if strings.Index(groupId, GROUPSUFFIX) < 0 {
+			sm.uiHandler.PrintText("not a group")
+			return
+		}
+		if !checkParam(command.Params, 1) {
+			sm.printCommandUsage("removeadmin", "[user-id[]")
+			return
+		}
+		wac := sm.getConnection()
+		var err error
+		_, err = wac.RemoveAdmin(groupId, command.Params)
+		if err == nil {
+			sm.uiHandler.PrintText("removed admin for " + groupId)
+		}
+		sm.uiHandler.PrintError(err)
 	case "admin":
 		groupId := sm.currentReceiver
 		if strings.Index(groupId, GROUPSUFFIX) < 0 {
