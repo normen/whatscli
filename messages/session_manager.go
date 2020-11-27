@@ -240,7 +240,12 @@ func (sm *SessionManager) loginWithConnection(wac *whatsapp.Conn) error {
 	if err != nil {
 		return fmt.Errorf("error saving session: %v\n", err)
 	}
-	//<-time.After(3 * time.Second)
+	//get initial battery state
+	sm.BatteryChannel <- BatteryMsg{
+		wac.Info.Battery,
+		wac.Info.Plugged,
+		false,
+	}
 	sm.StatusChannel <- StatusMsg{true, nil}
 	return nil
 }
