@@ -417,7 +417,7 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"add[::-] [user-id[]  = Add user to group")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"admin[::-] [user-id[]  = Set admin role for user in group")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"subject[::-] New Subject  = Change subject of group")
-	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.CommandCopyuser, "[::-]to copy a selected user id)")
+	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.CommandCopyuser, "[::-]to copy a selected user id")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Configuration:")
 	fmt.Fprintln(textView, " ->", config.GetConfigFilePath())
