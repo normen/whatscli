@@ -16,7 +16,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v1.0.0"
+var VERSION string = "v1.0.1"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -627,7 +627,11 @@ func (u UiHandler) NewScreen(msgs []messages.Message) {
 		textView.SetText(screen)
 		curRegions = msgs
 		if screen == "" {
-			PrintHelp()
+			if currentReceiver.Id == "" {
+				PrintHelp()
+			} else {
+				PrintText("[::d] ~~~ no messages, press " + config.Config.Keymap.CommandBacklog + " to load backlog if available ~~~[::-]")
+			}
 		}
 	})
 }
