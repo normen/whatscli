@@ -14,15 +14,17 @@ Things that work.
 - Allows downloading and opening image/video/audio/document attachments
 - Allows sending documents
 - Allows color customization
+- Allows basic group management
 - Supports desktop notifications
 - Binaries for Windows, Mac, Linux and RaspBerry Pi
 
 ### Caveats
 
-This is a WIP and mainly meant for my personal use. Heres some things you might expect to work that don't. Plus some other things I should mention.
+Heres some things you might expect to work that don't. Plus some other things I should mention.
 
 - Only shows existing chats
 - No auto-reconnect when connection drops
+- No automation of messages, no sending of messages through shell commands
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when FaceBook changes stuff in their web app
 
 ## Installation / Usage
