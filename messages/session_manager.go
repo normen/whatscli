@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
-	"github.com/atotto/clipboard"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gen2brain/beeep"
 	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/qrcode"
 	"github.com/rivo/tview"
+	"github.com/zyedidia/clipboard"
 	"mvdan.cc/xurls/v2"
 )
 
@@ -344,10 +344,10 @@ func (sm *SessionManager) execCommand(command Command) {
 		if checkParam(command.Params, 1) {
 			if msg, ok := sm.db.messagesById[command.Params[0]]; ok {
 				if msg.Info.SenderJid != "" {
-					clipboard.WriteAll(msg.Info.SenderJid)
+					clipboard.WriteAll(msg.Info.SenderJid, "clipboard")
 					sm.uiHandler.PrintText("copied " + sm.db.GetIdShort(msg.Info.SenderJid))
 				} else {
-					clipboard.WriteAll(msg.Info.RemoteJid)
+					clipboard.WriteAll(msg.Info.RemoteJid, "clipboard")
 					sm.uiHandler.PrintText("copied " + sm.db.GetIdShort(msg.Info.RemoteJid))
 				}
 			}
@@ -356,7 +356,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				sm.printCommandUsage("copyuser", "[message-id[]")
 				sm.printCommandUsage("copyuser", "-> in chat")
 			} else {
-				clipboard.WriteAll(sm.currentReceiver)
+				clipboard.WriteAll(sm.currentReceiver, "clipboard")
 				sm.uiHandler.PrintText("copied " + sm.db.GetIdShort(sm.currentReceiver))
 			}
 		}
