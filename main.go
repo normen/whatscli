@@ -592,11 +592,15 @@ func getMessagesString(msgs []messages.Message) string {
 }
 
 // create a formatted string with regions based on message ID from a text message
+//TODO: optimize, use Sprintf etc
 func getTextMessageString(msg *messages.Message) string {
 	colorMe := config.Config.Colors.ChatMe
 	colorContact := config.Config.Colors.ChatContact
 	out := ""
 	text := tview.Escape(msg.Text)
+	if msg.Forwarded {
+		text = "[" + config.Config.Colors.ForwardedText + "]" + text + "[-]"
+	}
 	tim := time.Unix(int64(msg.Timestamp), 0)
 	time := tim.Format("02-01-06 15:04:05")
 	out += "[\""

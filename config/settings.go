@@ -56,6 +56,7 @@ type Ui struct {
 type Colors struct {
 	Background      string
 	Text            string
+	ForwardedText   string
 	ListHeader      string
 	ListContact     string
 	ListGroup       string
@@ -102,6 +103,7 @@ var Config = IniFile{
 	&Colors{
 		Background:      "black",
 		Text:            "white",
+		ForwardedText:   "purple",
 		ListHeader:      "yellow",
 		ListContact:     "green",
 		ListGroup:       "blue",

@@ -53,6 +53,7 @@ type Message struct {
 	ContactShort string
 	Timestamp    uint64
 	FromMe       bool
+	Forwarded    bool
 	Text         string
 }
 

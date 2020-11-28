@@ -724,6 +724,7 @@ func (sm *SessionManager) createMessage(msg *whatsapp.TextMessage) Message {
 	newMsg.FromMe = msg.Info.FromMe
 	newMsg.Timestamp = msg.Info.Timestamp
 	newMsg.Text = msg.Text
+	newMsg.Forwarded = msg.ContextInfo.IsForwarded
 	if strings.Contains(msg.Info.RemoteJid, STATUSSUFFIX) {
 		newMsg.ContactId = msg.Info.SenderJid
 		newMsg.ContactName = sm.db.GetIdName(msg.Info.SenderJid)
