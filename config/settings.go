@@ -6,12 +6,10 @@ import (
 	"os/user"
 
 	"github.com/adrg/xdg"
-	"gitlab.com/tslocum/cbind"
 	"gopkg.in/ini.v1"
 )
 
 var configFilePath string
-var keyConfig *cbind.Configuration
 var cfg *ini.File
 
 type IniFile struct {
