@@ -17,7 +17,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v1.0.2"
+var VERSION string = "v1.0.3"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -248,38 +248,27 @@ func handleMessageCommand(command string) func(ev *tcell.EventKey) *tcell.EventK
 	}
 }
 
-func handleMessagesUp(ev *tcell.EventKey) *tcell.EventKey {
-	if curRegions == nil || len(curRegions) == 0 {
+func handleMessagesMove(amount int) func(ev *tcell.EventKey) *tcell.EventKey {
+	return func(ev *tcell.EventKey) *tcell.EventKey {
+		if curRegions == nil || len(curRegions) == 0 {
+			return nil
+		}
+		hls := textView.GetHighlights()
+		if len(hls) > 0 {
+			newId := GetOffsetMsgId(hls[0], amount)
+			if newId != "" {
+				textView.Highlight(newId)
+			}
+		} else {
+			if amount < 0 {
+				textView.Highlight(curRegions[0].Id)
+			} else {
+				textView.Highlight(curRegions[len(curRegions)-1].Id)
+			}
+		}
+		textView.ScrollToHighlight()
 		return nil
 	}
-	hls := textView.GetHighlights()
-	if len(hls) > 0 {
-		newId := GetOffsetMsgId(hls[0], -1)
-		if newId != "" {
-			textView.Highlight(newId)
-		}
-	} else {
-		textView.Highlight(curRegions[len(curRegions)-1].Id)
-	}
-	textView.ScrollToHighlight()
-	return nil
-}
-
-func handleMessagesDown(ev *tcell.EventKey) *tcell.EventKey {
-	if curRegions == nil || len(curRegions) == 0 {
-		return nil
-	}
-	hls := textView.GetHighlights()
-	if len(hls) > 0 {
-		newId := GetOffsetMsgId(hls[0], 1)
-		if newId != "" {
-			textView.Highlight(newId)
-		}
-	} else {
-		textView.Highlight(curRegions[0].Id)
-	}
-	textView.ScrollToHighlight()
-	return nil
 }
 
 func handleChatPanelUp(ev *tcell.EventKey) *tcell.EventKey {
@@ -356,7 +345,7 @@ func LoadShortcuts() {
 		PrintErrorMsg("command_help:", err)
 	}
 	app.SetInputCapture(keyBindings.Capture)
-	// bindings for text input
+	// bindings for chat message text view
 	keysMessages := cbind.NewConfiguration()
 	if err := keysMessages.Set(config.Config.Keymap.MessageDownload, handleMessageCommand("download")); err != nil {
 		PrintErrorMsg("message_download:", err)
@@ -383,12 +372,16 @@ func LoadShortcuts() {
 		PrintErrorMsg("message_revoke:", err)
 	}
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyEscape, handleExitMessages)
-	keysMessages.SetKey(tcell.ModNone, tcell.KeyUp, handleMessagesUp)
-	keysMessages.SetKey(tcell.ModNone, tcell.KeyDown, handleMessagesDown)
-	keysMessages.SetRune(tcell.ModNone, 'k', handleMessagesUp)
-	keysMessages.SetRune(tcell.ModNone, 'j', handleMessagesDown)
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyUp, handleMessagesMove(-1))
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyDown, handleMessagesMove(1))
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyPgUp, handleMessagesMove(-10))
+	keysMessages.SetKey(tcell.ModNone, tcell.KeyPgDn, handleMessagesMove(10))
+	keysMessages.SetRune(tcell.ModNone, 'k', handleMessagesMove(-1))
+	keysMessages.SetRune(tcell.ModNone, 'j', handleMessagesMove(1))
 	keysMessages.SetRune(tcell.ModNone, 'g', handleMessagesFirst)
 	keysMessages.SetRune(tcell.ModNone, 'G', handleMessagesLast)
+	keysMessages.SetRune(tcell.ModCtrl, 'u', handleMessagesMove(-10))
+	keysMessages.SetRune(tcell.ModCtrl, 'd', handleMessagesMove(10))
 	textView.SetInputCapture(keysMessages.Capture)
 	keysChatPanel := cbind.NewConfiguration()
 	keysChatPanel.SetRune(tcell.ModCtrl, 'u', handleChatPanelUp)
