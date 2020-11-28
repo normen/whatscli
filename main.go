@@ -392,8 +392,6 @@ func LoadShortcuts() {
 // prints help to chat view
 func PrintHelp() {
 	cmdPrefix := config.Config.General.CmdPrefix
-	fmt.Fprintln(textView, "[::b]WhatsCLI "+VERSION+"[-]")
-	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Keys:[-::-]")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Global")
@@ -409,6 +407,15 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageUrl, "[::-] = Find URL in message and open it")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageRevoke, "[::-] = Revoke message")
 	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageInfo, "[::-] = Info about message")
+	fmt.Fprintln(textView, "")
+	fmt.Fprintln(textView, "Config file in ->", config.GetConfigFilePath())
+	fmt.Fprintln(textView, "")
+	fmt.Fprintln(textView, "Type [::b]"+cmdPrefix+"commands[::-] to see all commands")
+	fmt.Fprintln(textView, "")
+}
+
+func PrintCommands() {
+	cmdPrefix := config.Config.General.CmdPrefix
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "[-::u]Commands:[-::-]")
 	fmt.Fprintln(textView, "")
@@ -434,11 +441,9 @@ func PrintHelp() {
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"remove[::-] [user-id[]  = Remove user from group")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"admin[::-] [user-id[]  = Set admin role for user in group")
 	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"removeadmin[::-] [user-id[]  = Remove admin role for user in group")
+	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.Copyuser, "[::-]to copy a selected user id to clipboard")
 	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.Pasteuser, "[::-]to paste clipboard to text input")
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "Configuration:")
-	fmt.Fprintln(textView, " ->", config.GetConfigFilePath())
 	fmt.Fprintln(textView, "")
 }
 
@@ -453,13 +458,16 @@ func EnterCommand(key tcell.Key) {
 	}
 	cmdPrefix := config.Config.General.CmdPrefix
 	if sndTxt == cmdPrefix+"help" {
-		//command
 		PrintHelp()
 		textInput.SetText("")
 		return
 	}
+	if sndTxt == cmdPrefix+"commands" {
+		PrintCommands()
+		textInput.SetText("")
+		return
+	}
 	if sndTxt == cmdPrefix+"quit" {
-		//command
 		sessionManager.CommandChannel <- messages.Command{"disconnect", nil}
 		app.Stop()
 		return
