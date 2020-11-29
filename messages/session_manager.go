@@ -823,7 +823,8 @@ func (sm *SessionManager) sendText(wid string, text string) {
 	}
 
 	sm.lastSent = time.Now()
-	_, err := sm.getConnection().Send(msg)
+	newid, err := sm.getConnection().Send(msg)
+	msg.Info.Id = newid
 	if err != nil {
 		sm.uiHandler.PrintError(err)
 	} else {
