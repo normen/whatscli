@@ -17,7 +17,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v1.0.4"
+var VERSION string = "v1.0.5"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -60,10 +60,10 @@ func main() {
 	topBar.SetScrollable(false)
 	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type " + cmdPrefix + "help or press " + config.Config.Keymap.CommandHelp + " for help")
 	topBar.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	UpdateStatusBar(messages.SessionStatus{})
 
 	infoBar = tview.NewTextView()
 	infoBar.SetDynamicColors(true)
+	UpdateStatusBar(messages.SessionStatus{})
 
 	textView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -590,9 +590,7 @@ func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	}
 	out += ")[::-] "
 	out += statusInfo.LastSeen
-	go app.QueueUpdateDraw(func() {
-		infoBar.SetText(out)
-	})
+	infoBar.SetText(out)
 	//infoBar.SetText("🔋: ??%")
 }
 
@@ -713,7 +711,9 @@ func (u UiHandler) PrintText(msg string) {
 }
 
 func (u UiHandler) PrintFile(path string) {
-	PrintImage(path)
+	go app.QueueUpdateDraw(func() {
+		PrintImage(path)
+	})
 }
 
 func (u UiHandler) OpenFile(path string) {
@@ -721,7 +721,9 @@ func (u UiHandler) OpenFile(path string) {
 }
 
 func (u UiHandler) SetStatus(status messages.SessionStatus) {
-	UpdateStatusBar(status)
+	go app.QueueUpdateDraw(func() {
+		UpdateStatusBar(status)
+	})
 }
 
 func (u UiHandler) GetWriter() io.Writer {
