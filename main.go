@@ -485,6 +485,11 @@ func EnterCommand(key tcell.Key) {
 		textInput.SetText("")
 		return
 	}
+	if currentReceiver.Id == "" {
+		PrintText("no receiver")
+		textInput.SetText("")
+		return
+	}
 	// no command, send as message
 	msg := messages.Command{
 		Name:   "send",
