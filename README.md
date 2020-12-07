@@ -27,7 +27,7 @@ Heres some things you might expect to work that don't. Plus some other things I 
 - No automation of messages, no sending of messages through shell commands
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when FaceBook changes stuff in their web app
 
-## Installation / Usage
+## Installation
 
 How to get it running and how to use it
 
@@ -51,6 +51,36 @@ Some ways to install via package managers are supported but the installed versio
 #### Arch Linux (AUR)
 
 - `https://aur.archlinux.org/packages/whatscli/`
+
+## Usage
+
+Most information, all commands and key bindings are availabe through the in-app help, simply type `/help` and/or `/commands`.
+
+### Login
+
+When starting up whatscli will immediately try to connect to the WhatsApp server to log in. Keep your phone ready to scan the appearing QR code in WhatsApp on your Phone. If you don't manage to scan the code quick enough, just restart the application. If you can not see the whole QR code, reduce the font size of your terminal or increase the window size.
+
+After scanning the QR code the chats should be populated. After you have done this once whatscli will be able to log into WhatsApp automatically on start. To log out of WhapsApp completely, type `/logout`.
+
+### Messaging / Commands
+
+Select a chat on the left and start typing in the input field at the bottom (switch with `<Tab>`) to send messages. To issue commands the same input field is used, by default commands are prefixed with `/`. You can for example use the `/sendimage /path/to/file.jpg` command to send images, see `/help` for more commands.
+
+When paths are given for commands you don't need to surround the path in quotes, even if it contains spaces. Also don't prefix spaces with backslashes (as the copy-paste function of MacOS does for example).
+
+### Messages
+
+When pressing `Ctrl-w` (default mapping) you enter "message selection mode" which allows swlecting a single message and performing operations on them. For example pressing `o` while a message is selected allows opening any attachments through an external application.
+
+##### Image display
+
+You can display images in the terminal using external programs that convert the image to UTF characters. I found that `jp2a` works well for jpeg images and is available through package managers on most systems. However the "image quality" leaves a lot to be desired. The [PIXterm](https://github.com/eliukblau/pixterm) app allows displaying true-color versions of the images which are quite recognizable already.
+
+To configure the used command and its parameters edit the `show_command` parameter in `whatscli.config`, see `/help` for the config file location.
+
+### Configuration
+
+Most key bindings, colors and other options can be configured in the `whatscli.config` file, the `/help` command shows its location.
 
 ## Development
 
