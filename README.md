@@ -72,11 +72,15 @@ When paths are given for commands you don't need to surround the path in quotes,
 
 When pressing `Ctrl-w` (default mapping) you enter "message selection mode" which allows swlecting a single message and performing operations on them. For example pressing `o` while a message is selected allows opening any attachments through an external application.
 
-##### Image display
+#### Image display
 
 You can display images in the terminal using external programs that convert the image to UTF characters. I found that `jp2a` works well for jpeg images and is available through package managers on most systems. However the "image quality" leaves a lot to be desired. The [PIXterm](https://github.com/eliukblau/pixterm) app allows displaying true-color versions of the images which are quite recognizable already.
 
 To configure the used command and its parameters edit the `show_command` parameter in `whatscli.config`, see `/help` for the config file location.
+
+#### Copy-Pasting User IDs
+
+Some commands such as the `/add` and `/remove` require a "user id" as their input. You can copy the user ID of a selected chat or a selected message to the clipboard with `Ctrl-c` (default mapping) and easily append them to the current input using `Ctrl-v`.
 
 ### Configuration
 
