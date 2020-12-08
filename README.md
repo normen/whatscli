@@ -84,6 +84,10 @@ To configure the used command and its parameters edit the `show_command` paramet
 
 Some commands such as the `/add` and `/remove` require a "user id" as their input. You can copy the user ID of a selected chat or a selected message to the clipboard with `Ctrl-c` (default mapping) and easily append them to the current input using `Ctrl-v`.
 
+### Desktop Notifications
+
+The app supports basic desktop notifications through the `gen2brain/beeep` library, to enable it set `enable_notifications = true` in `whatscli.config`.
+
 ### Configuration
 
 Most key bindings, colors and other options can be configured in the `whatscli.config` file, the `/help` command shows its location.
