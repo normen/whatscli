@@ -1,10 +1,13 @@
-FROM golang
+FROM golang as builder
 
 WORKDIR /src
 
 COPY . .
 
-RUN make build
+RUN CGO_ENABLED=0 GOOS=linux make build
 
-ENTRYPOINT ["./whatscli"]
+FROM alpine
+COPY --from=builder /src/whatscli /usr/local/bin/
+
+ENTRYPOINT ["whatscli"]
 
