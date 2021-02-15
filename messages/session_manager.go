@@ -89,8 +89,8 @@ func (sm *SessionManager) runManager() error {
 				if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 					if int64(msg.Info.Timestamp) > sm.lastSent.Unix()+config.Config.General.NotificationTimeout {
 						sm.db.NewUnreadChat(msg.Info.RemoteJid)
-						if config.Config.General.EnableNotifications && !msg.Info.FromMe {
-							err := beeep.Notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+						if !msg.Info.FromMe {
+							err := notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text)
 							if err != nil {
 								sm.uiHandler.PrintError(err)
 							}
@@ -101,8 +101,8 @@ func (sm *SessionManager) runManager() error {
 				// notify if message is younger than 30 sec and not in focus
 				if int64(msg.Info.Timestamp) > time.Now().Unix()-30 {
 					sm.db.NewUnreadChat(msg.Info.RemoteJid)
-					if config.Config.General.EnableNotifications && !msg.Info.FromMe {
-						err := beeep.Notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text, "")
+					if !msg.Info.FromMe {
+						err := notify(sm.db.GetIdShort(msg.Info.RemoteJid), msg.Text)
 						if err != nil {
 							sm.uiHandler.PrintError(err)
 						}
@@ -984,4 +984,16 @@ func writeSession(session whatsapp.Session) error {
 // deletes the session file from disk
 func removeSession() error {
 	return os.Remove(config.GetSessionFilePath())
+}
+
+// notify will send a notification via beeep if EnableNotification is true. If
+// UseTerminalBell is true it will send a terminal bell instead.
+func notify(title, message string) error {
+	if !config.Config.General.EnableNotifications {
+		return nil
+	} else if config.Config.General.UseTerminalBell {
+		_, err := fmt.Printf("\a")
+		return err
+	}
+	return beeep.Notify(title, message, "")
 }

@@ -25,6 +25,7 @@ type General struct {
 	CmdPrefix           string
 	ShowCommand         string
 	EnableNotifications bool
+	UseTerminalBell     bool
 	NotificationTimeout int64
 }
 
@@ -76,6 +77,7 @@ var Config = IniFile{
 		CmdPrefix:           "/",
 		ShowCommand:         "jp2a --color",
 		EnableNotifications: false,
+		UseTerminalBell:     false,
 		NotificationTimeout: 60,
 	},
 	&Keymap{
