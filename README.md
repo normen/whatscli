@@ -111,3 +111,7 @@ Session manager is designed "object like", the MessageDatabase in `messages/stor
 In `messages/messages.go` most interfaces and data structures for communication are kept.
 
 The `config/settings.go` keeps a singleton `Config` struct with the config that is loaded via the gopkg.in/ini.v1 library when the app starts. This makes it easy to quickly add new configuration items with default values that can be used across the app.
+
+## License
+
+This software is released under MIT license. Remember that this gives you all freedom except for slapping your name on it.
