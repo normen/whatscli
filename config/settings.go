@@ -27,6 +27,7 @@ type General struct {
 	EnableNotifications bool
 	UseTerminalBell     bool
 	NotificationTimeout int64
+	BacklogMsgQuantity 	int
 }
 
 type Keymap struct {
@@ -79,6 +80,7 @@ var Config = IniFile{
 		EnableNotifications: false,
 		UseTerminalBell:     false,
 		NotificationTimeout: 60,
+		BacklogMsgQuantity:	 10,
 	},
 	&Keymap{
 		SwitchPanels:    "Tab",

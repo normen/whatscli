@@ -279,7 +279,7 @@ func (sm *SessionManager) execCommand(command Command) {
 		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Unknown command: [-]" + cmd)
 	case "backlog":
 		if sm.currentReceiver != "" {
-			count := 10
+			count := config.Config.General.BacklogMsgQuantity
 			if currentMsgs, ok := sm.db.textMessages[sm.currentReceiver]; ok {
 				if len(currentMsgs) > 0 {
 					firstMsg := currentMsgs[0]
