@@ -17,7 +17,7 @@ import (
 	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v1.0.7"
+var VERSION string = "v1.0.8"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
