@@ -8,16 +8,16 @@ import (
 	"strings"
 	"time"
 
+	"code.rocketnine.space/tslocum/cbind"
 	"github.com/gdamore/tcell/v2"
 	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/messages"
 	"github.com/rivo/tview"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/zyedidia/clipboard"
-	"gitlab.com/tslocum/cbind"
 )
 
-var VERSION string = "v1.0.8"
+var VERSION string = "v1.0.9"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
