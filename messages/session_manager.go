@@ -753,7 +753,9 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 		case whatsapp.ImageMessage:
 			fileName += v.Info.Id
 			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
-				fileName += exts[0]
+				if len(exts) > 0 {
+					fileName += exts[0]
+				}
 			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
@@ -767,7 +769,9 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 		case whatsapp.DocumentMessage:
 			fileName += v.Info.Id
 			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
-				fileName += exts[0]
+				if len(exts) > 0 {
+					fileName += exts[0]
+				}
 			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
@@ -781,7 +785,9 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 		case whatsapp.AudioMessage:
 			fileName += v.Info.Id
 			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
-				fileName += exts[0]
+				if len(exts) > 0 {
+					fileName += exts[0]
+				}
 			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
@@ -795,7 +801,9 @@ func (sm *SessionManager) downloadMessage(wid string, preview bool) (string, err
 		case whatsapp.VideoMessage:
 			fileName += v.Info.Id
 			if exts, err := mime.ExtensionsByType(v.Type); err == nil {
-				fileName += exts[0]
+				if len(exts) > 0 {
+					fileName += exts[0]
+				}
 			}
 			if _, err := os.Stat(fileName); err == nil {
 				return fileName, err
