@@ -153,6 +153,21 @@ func (db *MessageDatabase) GetMessageInfo(id string) string {
 	return out
 }
 
+func (db *MessageDatabase) GetMessageSender(id string) string {
+	if _, ok := db.otherMessages[id]; ok {
+		return ""
+	}
+	out := ""
+	if msg, ok := db.messagesById[id]; ok {
+		if msg.ContextInfo.Participant != "" {
+			return msg.ContextInfo.Participant
+		} else {
+			return msg.Info.SenderJid
+		}
+	}
+	return out
+}
+
 // get a string containing all messages for a chat by chat id
 func (db *MessageDatabase) GetMessages(wid string) []whatsapp.TextMessage {
 	var arr = []whatsapp.TextMessage{}

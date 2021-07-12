@@ -17,7 +17,7 @@ import (
 	"github.com/zyedidia/clipboard"
 )
 
-var VERSION string = "v1.0.10"
+var VERSION string = "v1.1.0"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -202,6 +202,20 @@ func handleCommand(command string) func(ev *tcell.EventKey) *tcell.EventKey {
 	}
 }
 
+func handleQuote(ev *tcell.EventKey) *tcell.EventKey {
+	if hls := textView.GetHighlights(); len(hls) > 0 {
+		for _, val := range curRegions {
+			if val.Id == hls[0] {
+				cmdPrefix := config.Config.General.CmdPrefix
+				textInput.SetText(cmdPrefix + "quote " + val.ChatId + " " + val.Id + " ")
+			}
+		}
+		ResetMsgSelection()
+		app.SetFocus(textInput)
+	}
+	return nil
+}
+
 func handleCopyUser(ev *tcell.EventKey) *tcell.EventKey {
 	if hls := textView.GetHighlights(); len(hls) > 0 {
 		for _, val := range curRegions {
@@ -370,6 +384,9 @@ func LoadShortcuts() {
 	}
 	if err := keysMessages.Set(config.Config.Keymap.MessageRevoke, handleMessageCommand("revoke")); err != nil {
 		PrintErrorMsg("message_revoke:", err)
+	}
+	if err := keysMessages.Set(config.Config.Keymap.MessageQuote, handleQuote); err != nil {
+		PrintErrorMsg("quote:", err)
 	}
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyEscape, handleExitMessages)
 	keysMessages.SetKey(tcell.ModNone, tcell.KeyUp, handleMessagesMove(-1))

@@ -307,6 +307,14 @@ func (sm *SessionManager) execCommand(command Command) {
 		} else {
 			sm.printCommandUsage("send", "[chat-id[] [message text[]")
 		}
+	case "quote":
+		if checkParam(command.Params, 3) {
+			textParams := command.Params[2:]
+			text := strings.Join(textParams, " ")
+			sm.sendQuotedText(command.Params[0], command.Params[1], text)
+		} else {
+			sm.printCommandUsage("quote", "[chat-id[] [quoted-message-id[] [message text[]")
+		}
 	case "select":
 		if checkParam(command.Params, 1) {
 			sm.setCurrentReceiver(command.Params[0])
@@ -829,13 +837,33 @@ func (sm *SessionManager) sendText(wid string, text string) {
 		},
 		Text: text,
 	}
+	sm.sendMsg(msg, wid)
+}
 
+func (sm *SessionManager) sendQuotedText(wid string, qid string, text string) {
+	sm.db.GetMessageInfo(qid)
+	msg := whatsapp.TextMessage{
+		Info: whatsapp.MessageInfo{
+			RemoteJid: wid,
+			FromMe:    true,
+			Timestamp: uint64(time.Now().Unix()),
+		},
+		Text: text,
+		ContextInfo: whatsapp.ContextInfo{
+			QuotedMessageID: qid,
+			Participant:     sm.db.GetMessageSender(qid),
+		},
+	}
+	sm.sendMsg(msg, wid)
+}
+
+func (sm *SessionManager) sendMsg(msg whatsapp.TextMessage, wid string) {
 	sm.lastSent = time.Now()
 	newid, err := sm.getConnection().Send(msg)
-	msg.Info.Id = newid
 	if err != nil {
 		sm.uiHandler.PrintError(err)
 	} else {
+		msg.Info.Id = newid
 		sm.db.AddTextMessage(&msg)
 		if sm.currentReceiver == wid {
 			sm.uiHandler.NewMessage(sm.createMessage(&msg))
