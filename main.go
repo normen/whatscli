@@ -110,6 +110,14 @@ func main() {
 			textView.ScrollTo(offset, 0)
 			return nil
 		}
+		if event.Key() == tcell.KeyLeft {
+			gridLayout.SetColumns(1, 0, sideBarWidth)
+			return nil
+		}
+		if event.Key() == tcell.KeyRight {
+			gridLayout.SetColumns(sideBarWidth, 0, sideBarWidth)
+			return nil
+		}
 		return event
 	})
 
