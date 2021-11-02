@@ -194,7 +194,7 @@ func (sm *SessionManager) getConnection() *whatsapp.Conn {
 		}
 		wac = wacc
 		sm.connection = wac
-		//wac.SetClientVersion(2, 2021, 4)
+		wac.SetClientVersion(2, 2142, 12)
 	} else {
 		wac = sm.connection
 	}
