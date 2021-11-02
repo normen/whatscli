@@ -17,7 +17,7 @@ import (
 	"github.com/zyedidia/clipboard"
 )
 
-var VERSION string = "v1.0.10"
+var VERSION string = "v1.0.11"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
