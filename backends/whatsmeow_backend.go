@@ -2,31 +2,27 @@ package backends
 
 import (
 	"context"
-	//"encoding/json"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"mime"
+	"os"
+	"strings"
+	"sync/atomic"
+	"time"
+
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
-	"strings"
-	//"github.com/normen/whatscli/config"
-	//"github.com/normen/whatscli/qrcode"
-	//"github.com/rivo/tview"
+
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
-	"mime"
-	//"net/http"
+
 	"github.com/normen/whatscli/messages"
-	"os"
-	//"os/signal"
-	//"strings"
-	//"sync/atomic"
-	//"syscall"
-	//"time"
 )
 
 var logLevel = "INFO"
@@ -53,8 +49,8 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 
 func (b *MeowBackend) Start(bkChan chan interface{}) error {
 	b.backChannel = bkChan
-	dbLog := waLog.Stdout("Database", logLevel, true)
-	storeContainer, err := sqlstore.New(*dbDialect, *dbAddress, dbLog)
+	//dbLog := waLog.Stdout("Database", logLevel, true)
+	storeContainer, err := sqlstore.New(*dbDialect, *dbAddress, waLog.Noop)
 	if err != nil {
 		return err
 	}
@@ -88,6 +84,9 @@ func (b *MeowBackend) Start(bkChan chan interface{}) error {
 	}
 	return nil
 }
+
+var historySyncID int32
+var startupTime = time.Now().Unix()
 
 func (sm *MeowBackend) handler(rawEvt interface{}) {
 	switch evt := rawEvt.(type) {
@@ -147,6 +146,19 @@ func (sm *MeowBackend) handler(rawEvt interface{}) {
 			}
 			sm.uiHandler.PrintText(fmt.Sprintf("Saved image in message to %s", path))
 		}
+		message := &messages.Message{
+			Id:           evt.Info.ID,
+			ChatId:       evt.Info.Chat.String(),
+			ContactId:    evt.Info.Sender.String(),
+			ContactName:  evt.Info.PushName,
+			ContactShort: evt.Info.PushName, //TODO
+			Timestamp:    uint64(evt.Info.Timestamp.Unix()),
+			FromMe:       evt.Info.IsFromMe,
+			Forwarded:    false, //TODO
+			Text:         evt.Message.String(),
+			Orig:         evt,
+		}
+		sm.backChannel <- message
 	case *events.Receipt:
 		if evt.Type == events.ReceiptTypeRead || evt.Type == events.ReceiptTypeReadSelf {
 			sm.uiHandler.PrintText(fmt.Sprintf("%v was read by %s at %s", evt.MessageIDs, evt.SourceString(), evt.Timestamp))
@@ -164,22 +176,22 @@ func (sm *MeowBackend) handler(rawEvt interface{}) {
 			sm.uiHandler.PrintText(fmt.Sprintf("%s is now online", evt.From))
 		}
 	case *events.HistorySync:
-		//id := atomic.AddInt32(&historySyncID, 1)
-		//fileName := fmt.Sprintf("history-%d-%d.json", startupTime, id)
-		//file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0600)
-		//if err != nil {
-		//log.Errorf("Failed to open file to write history sync: %v", err)
-		//return
-		//}
-		//enc := json.NewEncoder(file)
-		//enc.SetIndent("", "  ")
-		//err = enc.Encode(evt.Data)
-		//if err != nil {
-		//log.Errorf("Failed to write history sync: %v", err)
-		//return
-		//}
-		//log.Infof("Wrote history sync to %s", fileName)
-		//_ = file.Close()
+		id := atomic.AddInt32(&historySyncID, 1)
+		fileName := fmt.Sprintf("history-%d-%d.json", startupTime, id)
+		file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			sm.uiHandler.PrintText(fmt.Sprintf("Failed to open file to write history sync: %v", err))
+			return
+		}
+		enc := json.NewEncoder(file)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(evt.Data)
+		if err != nil {
+			sm.uiHandler.PrintText(fmt.Sprintf("Failed to write history sync: %v", err))
+			return
+		}
+		sm.uiHandler.PrintText(fmt.Sprintf("Wrote history sync to %s", fileName))
+		_ = file.Close()
 	case *events.AppState:
 		sm.uiHandler.PrintText(fmt.Sprintf("App state event: %+v / %+v", evt.Index, evt.SyncActionValue))
 	}

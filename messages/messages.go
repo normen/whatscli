@@ -55,6 +55,7 @@ type Message struct {
 	FromMe       bool
 	Forwarded    bool
 	Text         string
+	Orig         interface{}
 }
 
 // internal contact representation to abstract from message lib
