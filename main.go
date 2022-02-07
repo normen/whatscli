@@ -32,7 +32,7 @@ var infoBar *tview.TextView
 var chatRoot *tview.TreeNode
 var app *tview.Application
 
-var sessionManager *messages.SessionManager
+var sessionManager *messages.MeowBackend
 
 var keyBindings *cbind.Configuration
 
@@ -41,8 +41,7 @@ var uiHandler messages.UiMessageHandler
 func main() {
 	config.InitConfig()
 	uiHandler = UiHandler{}
-	sessionManager = &messages.SessionManager{}
-	sessionManager.Init(uiHandler)
+	sessionManager = messages.NewMeowBackend(uiHandler)
 
 	app = tview.NewApplication()
 
