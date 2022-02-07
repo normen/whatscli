@@ -1,4 +1,4 @@
-package messages
+package backends
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
+	"strings"
 	//"github.com/normen/whatscli/config"
 	//"github.com/normen/whatscli/qrcode"
 	//"github.com/rivo/tview"
@@ -19,6 +20,7 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"mime"
 	//"net/http"
+	"github.com/normen/whatscli/messages"
 	"os"
 	//"os/signal"
 	//"strings"
@@ -33,20 +35,24 @@ var dbDialect = flag.String("db-dialect", "sqlite3", "Database dialect (sqlite3 
 var dbAddress = flag.String("db-address", "file:mdtest.db?_foreign_keys=on", "Database address")
 
 type MeowBackend struct {
-	uiHandler       UiMessageHandler
-	CommandChannel  chan Command
-	cli             *whatsmeow.Client
-	currentReceiver string
+	cli         *whatsmeow.Client
+	uiHandler   messages.UiMessageHandler
+	backChannel chan interface{}
 }
 
-func NewMeowBackend(handler UiMessageHandler) *MeowBackend {
+func NewMeowBackend(handler messages.UiMessageHandler) *MeowBackend {
 	b := &MeowBackend{}
+	//TODO: remove handler
 	b.uiHandler = handler
-	b.CommandChannel = make(chan Command, 10)
 	return b
 }
 
-func (b *MeowBackend) StartManager() error {
+func (b *MeowBackend) Command(cmd string, args []string) error {
+	return nil
+}
+
+func (b *MeowBackend) Start(bkChan chan interface{}) error {
+	b.backChannel = bkChan
 	dbLog := waLog.Stdout("Database", logLevel, true)
 	storeContainer, err := sqlstore.New(*dbDialect, *dbAddress, dbLog)
 	if err != nil {
@@ -69,7 +75,8 @@ func (b *MeowBackend) StartManager() error {
 				if evt.Event == "code" {
 					qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, b.uiHandler.GetWriter())
 				} else {
-					fmt.Printf("QR channel result: %s\n", evt.Event)
+					b.uiHandler.PrintText(fmt.Sprintf("QR channel result: %s", evt.Event))
+					//fmt.Printf("QR channel result: %s\n", evt.Event)
 				}
 			}
 		}()
@@ -82,37 +89,28 @@ func (b *MeowBackend) StartManager() error {
 	return nil
 }
 
-// HandleError implements the error handler interface for go-whatsapp
-func (b *MeowBackend) HandleError(err error) {
-	b.uiHandler.PrintError(err)
-	//TODO
-	//statusMsg := StatusMsg{false, err}
-	//b.StatusChannel <- statusMsg
-	return
-}
-
-func (b *MeowBackend) handler(rawEvt interface{}) {
+func (sm *MeowBackend) handler(rawEvt interface{}) {
 	switch evt := rawEvt.(type) {
 	case *events.AppStateSyncComplete:
-		if len(b.cli.Store.PushName) > 0 && evt.Name == appstate.WAPatchCriticalBlock {
-			err := b.cli.SendPresence(types.PresenceAvailable)
+		if len(sm.cli.Store.PushName) > 0 && evt.Name == appstate.WAPatchCriticalBlock {
+			err := sm.cli.SendPresence(types.PresenceAvailable)
 			if err != nil {
-				//log.Warnf("Failed to send available presence: %v", err)
+				sm.uiHandler.PrintText(fmt.Sprintf("Failed to send available presence: %v", err))
 			} else {
-				//log.Infof("Marked self as available")
+				sm.uiHandler.PrintText(fmt.Sprintf("Marked self as available"))
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
-		if len(b.cli.Store.PushName) == 0 {
+		if len(sm.cli.Store.PushName) == 0 {
 			return
 		}
 		// Send presence available when connecting and when the pushname is changed.
 		// This makes sure that outgoing messages always have the right pushname.
-		err := b.cli.SendPresence(types.PresenceAvailable)
+		err := sm.cli.SendPresence(types.PresenceAvailable)
 		if err != nil {
-			//log.Warnf("Failed to send available presence: %v", err)
+			sm.uiHandler.PrintText(fmt.Sprintf("Failed to send available presence: %v", err))
 		} else {
-			//log.Infof("Marked self as available")
+			sm.uiHandler.PrintText(fmt.Sprintf("Marked self as available"))
 		}
 	case *events.StreamReplaced:
 		os.Exit(0)
@@ -131,39 +129,39 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 			metaParts = append(metaParts, "ephemeral")
 		}
 
-		//log.Infof("Received message %s from %s (%s): %+v", evt.Info.ID, evt.Info.SourceString(), strings.Join(metaParts, ", "), evt.Message)
+		sm.uiHandler.PrintText(fmt.Sprintf("Received message %s from %s (%s): %+v", evt.Info.ID, evt.Info.SourceString(), strings.Join(metaParts, ", "), evt.Message))
 
 		img := evt.Message.GetImageMessage()
 		if img != nil {
-			data, err := b.cli.Download(img)
+			data, err := sm.cli.Download(img)
 			if err != nil {
-				//log.Errorf("Failed to download image: %v", err)
+				sm.uiHandler.PrintText(fmt.Sprintf("Failed to download image: %v", err))
 				return
 			}
 			exts, _ := mime.ExtensionsByType(img.GetMimetype())
 			path := fmt.Sprintf("%s%s", evt.Info.ID, exts[0])
 			err = os.WriteFile(path, data, 0600)
 			if err != nil {
-				//log.Errorf("Failed to save image: %v", err)
+				sm.uiHandler.PrintText(fmt.Sprintf("Failed to save image: %v", err))
 				return
 			}
-			//log.Infof("Saved image in message to %s", path)
+			sm.uiHandler.PrintText(fmt.Sprintf("Saved image in message to %s", path))
 		}
 	case *events.Receipt:
 		if evt.Type == events.ReceiptTypeRead || evt.Type == events.ReceiptTypeReadSelf {
-			//log.Infof("%v was read by %s at %s", evt.MessageIDs, evt.SourceString(), evt.Timestamp)
+			sm.uiHandler.PrintText(fmt.Sprintf("%v was read by %s at %s", evt.MessageIDs, evt.SourceString(), evt.Timestamp))
 		} else if evt.Type == events.ReceiptTypeDelivered {
-			//log.Infof("%s was delivered to %s at %s", evt.MessageIDs[0], evt.SourceString(), evt.Timestamp)
+			sm.uiHandler.PrintText(fmt.Sprintf("%s was delivered to %s at %s", evt.MessageIDs[0], evt.SourceString(), evt.Timestamp))
 		}
 	case *events.Presence:
 		if evt.Unavailable {
 			if evt.LastSeen.IsZero() {
-				//log.Infof("%s is now offline", evt.From)
+				sm.uiHandler.PrintText(fmt.Sprintf("%s is now offline", evt.From))
 			} else {
-				//log.Infof("%s is now offline (last seen: %s)", evt.From, evt.LastSeen)
+				sm.uiHandler.PrintText(fmt.Sprintf("%s is now offline (last seen: %s)", evt.From, evt.LastSeen))
 			}
 		} else {
-			//log.Infof("%s is now online", evt.From)
+			sm.uiHandler.PrintText(fmt.Sprintf("%s is now online", evt.From))
 		}
 	case *events.HistorySync:
 		//id := atomic.AddInt32(&historySyncID, 1)
@@ -183,6 +181,11 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 		//log.Infof("Wrote history sync to %s", fileName)
 		//_ = file.Close()
 	case *events.AppState:
-		//log.Debugf("App state event: %+v / %+v", evt.Index, evt.SyncActionValue)
+		sm.uiHandler.PrintText(fmt.Sprintf("App state event: %+v / %+v", evt.Index, evt.SyncActionValue))
 	}
+}
+
+func (b *MeowBackend) Stop() error {
+	b.backChannel = nil
+	return nil
 }

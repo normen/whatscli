@@ -73,6 +73,11 @@ type Contact struct {
 	Short string
 }
 
+//TODO: whatsapp-specific
 const GROUPSUFFIX = "@g.us"
+
+//TODO: whatsapp-specific
 const CONTACTSUFFIX = "@s.whatsapp.net"
+
+//TODO: whatsapp-specific
 const STATUSSUFFIX = "status@broadcast"

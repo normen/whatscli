@@ -10,6 +10,7 @@ import (
 
 	"code.rocketnine.space/tslocum/cbind"
 	"github.com/gdamore/tcell/v2"
+	"github.com/normen/whatscli/backends"
 	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/messages"
 	"github.com/rivo/tview"
@@ -17,7 +18,7 @@ import (
 	"github.com/zyedidia/clipboard"
 )
 
-var VERSION string = "v1.0.11"
+var VERSION string = "v2.0.0"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
@@ -32,7 +33,8 @@ var infoBar *tview.TextView
 var chatRoot *tview.TreeNode
 var app *tview.Application
 
-var sessionManager *messages.MeowBackend
+var sessionManager *messages.SessionManager
+var backend *backends.MeowBackend
 
 var keyBindings *cbind.Configuration
 
@@ -41,8 +43,8 @@ var uiHandler messages.UiMessageHandler
 func main() {
 	config.InitConfig()
 	uiHandler = UiHandler{}
-	sessionManager = messages.NewMeowBackend(uiHandler)
-
+	backend = backends.NewMeowBackend(uiHandler)
+	sessionManager = messages.NewSessionManager(uiHandler, backend)
 	app = tview.NewApplication()
 
 	sideBarWidth := config.Config.Ui.ChatSidebarWidth
