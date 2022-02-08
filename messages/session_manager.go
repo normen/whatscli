@@ -3,13 +3,6 @@ package messages
 import (
 	"errors"
 	"time"
-	//"encoding/json"
-	//"github.com/normen/whatscli/qrcode"
-	//"github.com/rivo/tview"
-	//"strings"
-	//"sync/atomic"
-	//"syscall"
-	//"time"
 )
 
 type Backend interface {
@@ -49,22 +42,7 @@ func (sm *SessionManager) StartManager() error {
 	return nil
 }
 
-//TODO: needed?
-//func (sm *SessionManager) HandleError(err error) {
-//  sm.uiHandler.PrintError(err)
-//  statusMsg := StatusMsg{false, err}
-//  sm.BackChannel <- statusMsg
-//  return
-//}
-
 func (sm *SessionManager) runManager() {
-	//TODO: move meow init/start here?
-	//var wac = sm.getConnection()
-	//err := sm.loginWithConnection(wac)
-	//if err != nil {
-	//sm.uiHandler.PrintError(err)
-	//}
-	//wac.AddHandler(sm)
 	sm.backend.Start(sm.backChannel)
 	for sm.started == true {
 		select {
