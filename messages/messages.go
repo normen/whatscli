@@ -66,12 +66,11 @@ type Message struct {
 }
 
 type Chat struct {
-	Id      string
-	IsGroup bool
-	Name    string
-	Unread  int
-	//TODO: convert to uint64
-	LastMessage int64
+	Id          string
+	IsGroup     bool
+	Name        string
+	Unread      int
+	LastMessage uint64
 }
 
 type Contact struct {

@@ -2,15 +2,19 @@ package backends
 
 import (
 	"context"
+
 	"go.mau.fi/whatsmeow/appstate"
+
 	//"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+
 	//"mime"
 	"net/http"
 	"os"
 	"strings"
+
 	//"sync/atomic"
 	"time"
 
@@ -489,12 +493,25 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 		//_ = file.Close()
 
 		for _, conversation := range evt.Data.Conversations {
-			//TODO: add chats here
+			chat := messages.Chat{
+				Id:          conversation.GetId(),
+				Name:        conversation.GetName(),
+				Unread:      int(conversation.GetUnreadCount()),
+				LastMessage: conversation.GetConversationTimestamp(),
+			}
+			if conversation.Name != nil {
+				chat.IsGroup = true
+			}
+			b.backChannel <- chat
 			for _, msg := range conversation.Messages {
+				var contact = msg.Message.Key.Participant
+				if contact == nil {
+					contact = msg.Message.Key.RemoteJid
+				}
 				if msg.Message.Message != nil {
 					message := messages.Message{
 						Id:        *msg.Message.Key.Id,
-						ContactId: *msg.Message.Key.RemoteJid,
+						ContactId: *contact,
 						FromMe:    *msg.Message.Key.FromMe,
 						ChatId:    *conversation.Id,
 						//ContactName:  "NAME",
