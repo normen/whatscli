@@ -1,6 +1,6 @@
 # whatscli
 
-A command line interface for whatsapp, based on [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [tview](https://github.com/rivo/tview)
+A command line interface for whatsapp, based on [whatsmeow](https://github.com/tulir/whatsmeow) and [tview](https://github.com/rivo/tview)
 
 ![whatscli-screenshot](/doc/screenshot.png?raw=true "WhatsCLI 0.6.5")
 
