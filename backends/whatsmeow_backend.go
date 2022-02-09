@@ -122,16 +122,16 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 			fmt.Println(err)
 		}
 	case "presence":
-		fmt.Println(b.cli.SendPresence(types.Presence(args[0])))
+		b.logf("%s", b.cli.SendPresence(types.Presence(args[0])))
 	case "chatpresence":
 		jid, _ := types.ParseJID(args[1])
-		fmt.Println(b.cli.SendChatPresence(types.ChatPresence(args[0]), jid))
+		b.logf("%s", b.cli.SendChatPresence(types.ChatPresence(args[0]), jid))
 	case "privacysettings":
 		resp, err := b.cli.TryFetchPrivacySettings(false)
 		if err != nil {
-			fmt.Println(err)
+			b.logf("%s", err)
 		} else {
-			fmt.Printf("%+v\n", resp)
+			b.logf("%+v\n", resp)
 		}
 	case "getuser":
 		if len(args) < 1 {
@@ -434,16 +434,16 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 		//  Text:         *msg.Message.Message.Conversation,
 		//}
 		message := &messages.Message{
-			Id:           evt.Info.ID,
-			ChatId:       evt.Info.Chat.String(),
-			ContactId:    evt.Info.Sender.String(),
-			ContactName:  evt.Info.PushName,
-			ContactShort: evt.Info.PushName, //TODO
-			Timestamp:    uint64(evt.Info.Timestamp.Unix()),
-			FromMe:       evt.Info.IsFromMe,
-			Forwarded:    false, //TODO
-			Text:         evt.Message.GetConversation(),
-			Orig:         evt, //TODO:needed?
+			Id:        evt.Info.ID,
+			ChatId:    evt.Info.Chat.String(),
+			ContactId: evt.Info.Sender.String(),
+			//ContactName:  evt.Info.PushName,
+			//ContactShort: evt.Info.PushName, //TODO
+			Timestamp: uint64(evt.Info.Timestamp.Unix()),
+			FromMe:    evt.Info.IsFromMe,
+			Forwarded: false, //TODO
+			Text:      evt.Message.GetConversation(),
+			//Orig:         evt, //TODO:needed?
 		}
 		b.backChannel <- message
 	case *events.Receipt:
@@ -481,6 +481,7 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 		//_ = file.Close()
 
 		for _, conversation := range evt.Data.Conversations {
+			//TODO: add chats here
 			for _, msg := range conversation.Messages {
 				if msg.Message.Message != nil {
 					message := messages.Message{
@@ -494,6 +495,7 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 						Forwarded: false, //TODO
 						Text:      msg.Message.Message.GetConversation(),
 					}
+					//b.uiHandler.PrintText("Found " + message.ContactId)
 					b.backChannel <- message
 				}
 			}

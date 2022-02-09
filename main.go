@@ -44,7 +44,13 @@ func main() {
 	config.InitConfig()
 	uiHandler = UiHandler{}
 	backend = backends.NewMeowBackend(uiHandler)
-	sessionManager = messages.NewSessionManager(uiHandler, backend)
+	var err error
+	if sessionManager, err = messages.NewSessionManager(uiHandler, backend); err != nil {
+		//TODO: session manager error
+		fmt.Println(err)
+		return
+		//uiHandler.PrintError(err)
+	}
 	app = tview.NewApplication()
 
 	sideBarWidth := config.Config.Ui.ChatSidebarWidth

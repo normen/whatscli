@@ -1,115 +1,254 @@
 package messages
 
 import (
-	"sort"
+	"database/sql"
+	//"fmt"
 	"strings"
 )
 
+const DB_VERSION = 0
+
 type MessageDatabase struct {
-	textMessages  map[string][]*Message   // text messages stored by RemoteJid
-	messagesById  map[string]*Message     // text messages stored by message ID
-	latestMessage map[string]uint64       // last message from RemoteJid
-	otherMessages map[string]*interface{} // other non-text messages, stored by ID
-	contacts      map[string]Contact
-	chats         map[string]Chat
+	store *sql.DB
+	//TODO: db locks when using contacts in db..
+	contacts map[string]Contact
 }
 
+//   container, err := sqlstore.New("sqlite3", "file:yoursqlitefile.db?_foreign_keys=on", nil)
 // initialize the database
-func NewMessageDatabase() *MessageDatabase {
+func NewMessageDatabase() (*MessageDatabase, error) {
 	db := &MessageDatabase{}
-	db.textMessages = make(map[string][]*Message)
-	db.messagesById = make(map[string]*Message)
-	db.otherMessages = make(map[string]*interface{})
-	db.latestMessage = make(map[string]uint64)
 	db.contacts = make(map[string]Contact)
-	db.chats = make(map[string]Chat)
-	return db
+	var err error
+	if db.store, err = sql.Open("sqlite3", "file:messages.db"); err != nil {
+		return nil, err
+	}
+	db.store.SetMaxOpenConns(1)
+	if _, err = db.store.Exec(`CREATE TABLE IF NOT EXISTS version(
+    dbversion INTEGER
+  )`); err != nil {
+		return nil, err
+	}
+	//if _, err = db.store.Exec(`CREATE TABLE IF NOT EXISTS contacts(
+	//  id TEXT,
+	//  name TEXT,
+	//  short TEXT
+	//)`); err != nil {
+	//  return nil, err
+	//}
+	if _, err = db.store.Exec(`CREATE TABLE IF NOT EXISTS chats(
+    id TEXT,
+    isgroup INTEGER,
+    unread INTEGER,
+    lastmessage INTEGER
+  )`); err != nil {
+		return nil, err
+	}
+	if _, err = db.store.Exec(`CREATE TABLE IF NOT EXISTS messages(
+    id TEXT,
+    chatid TEXT,
+    contactid TEXT,
+    timestamp INTEGER,
+    fromme INTEGER,
+    forwarded INTEGER,
+    text TEXT,
+    link TEXT,
+    messagetype TEXT,
+    medialink TEXT
+  )`); err != nil {
+		return nil, err
+	}
+	if err := db.UpdateDatabaseVersion(); err != nil {
+		return nil, err
+	}
+	return db, nil
 }
 
-// add a text message to the database, stored by RemoteJid
-func (db *MessageDatabase) Message(msg *Message) bool {
-	//var this = *db
-	var didNew = false
-	var wid = msg.ContactId
-	if db.textMessages[wid] == nil {
-		var newArr = []*Message{}
-		db.textMessages[wid] = newArr
-		db.latestMessage[wid] = msg.Timestamp
-		didNew = true
-	} else if db.latestMessage[wid] < msg.Timestamp {
-		db.latestMessage[wid] = msg.Timestamp
-		didNew = true
-	}
-	//do we know this chat? if not add
-	if _, ok := db.chats[msg.ChatId]; !ok {
-		//don't have this chat!
-		isGroup := strings.Contains(msg.ChatId, GROUPSUFFIX)
-		db.chats[msg.ChatId] = Chat{
-			msg.ChatId,
-			isGroup,
-			db.GetIdName(msg.ChatId),
-			1,
-			int64(msg.Timestamp),
+func (db *MessageDatabase) UpdateDatabaseVersion() error {
+	if rows, err := db.store.Query("SELECT dbversion from version"); err != nil {
+		defer rows.Close()
+		if rows.Next() {
+			var dbVersion int
+			rows.Scan(&dbVersion)
+			if DB_VERSION > dbVersion {
+				//TODO:update db
+				if dbVersion < 1 {
+					//do stuff etc.
+				}
+				if dbVersion < 2 {
+					//do stuff etc.
+				}
+				if _, err := db.store.Exec(`DELETE * FROM version`); err != nil {
+					return err
+				}
+				if _, err := db.store.Exec(`INSERT INTO version (dbversion) VALUES($1)`, DB_VERSION); err != nil {
+					return err
+				}
+			}
+		} else {
+			if _, err := db.store.Exec(`INSERT INTO version (dbversion) VALUES($1)`, DB_VERSION); err != nil {
+				return err
+			}
 		}
+	} else {
+		defer rows.Close()
+		return err
 	}
-	//check if message exists, ignore otherwise
-	if _, ok := db.messagesById[msg.Id]; !ok {
-		db.messagesById[msg.Id] = msg
-		db.textMessages[wid] = append(db.textMessages[wid], msg)
-		sort.Slice(db.textMessages[wid], func(i, j int) bool {
-			return db.textMessages[wid][i].Timestamp < db.textMessages[wid][j].Timestamp
-		})
-	}
-	return didNew
+	return nil
 }
 
-func (db *MessageDatabase) NewUnreadChat(id string) {
-	if chat, ok := db.chats[id]; ok {
-		chat.Unread++
-		db.chats[id] = chat
+// add a message to the database
+func (db *MessageDatabase) Message(msg *Message) (bool, error) {
+	//TODO: didnew/error
+	if result, err := db.store.Query("SELECT * FROM messages WHERE id=$1", msg.Id); err == nil {
+		defer result.Close()
+		if result.Next() {
+			return false, err
+		}
+	} else {
+		defer result.Close()
+		return false, err
 	}
+	if _, err := db.store.Exec(`INSERT INTO messages(
+      id,
+      chatid,
+      contactid,
+      timestamp,
+      fromme,
+      forwarded,
+      text,
+      link,
+      messagetype,
+      medialink
+    )
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		msg.Id,
+		msg.ChatId,
+		msg.ContactId,
+		msg.Timestamp,
+		msg.FromMe,
+		msg.Forwarded,
+		msg.Text,
+		msg.Link,
+		msg.MessageType,
+		msg.MediaLink); err != nil {
+		return false, err
+	}
+	//var didNew = false
+	//var wid = msg.ContactId
+	//if db.textMessages[wid] == nil {
+	//  var newArr = []*Message{}
+	//  db.textMessages[wid] = newArr
+	//  db.latestMessage[wid] = msg.Timestamp
+	//  didNew = true
+	//} else if db.latestMessage[wid] < msg.Timestamp {
+	//  db.latestMessage[wid] = msg.Timestamp
+	//  didNew = true
+	//}
+
+	//do we know this chat? if not add
+	if result, err := db.store.Query("SELECT * FROM chats WHERE id=$1", msg.ChatId); err == nil {
+		defer result.Close()
+		if !result.Next() {
+			//new
+			//TODO: check group else, e.g.
+			//isGroup := msg.ChatId != msg.ContactId
+			isGroup := strings.Contains(msg.ChatId, GROUPSUFFIX)
+			_, err := db.store.Exec(`INSERT INTO chats (
+          id,
+          isgroup,
+          unread,
+          lastmessage
+        )
+        VALUES ($1,$2,$3,$4)`,
+				msg.ChatId,
+				isGroup,
+				1,
+				msg.Timestamp,
+			)
+			if err != nil {
+				return false, err
+			}
+		}
+	} else {
+		defer result.Close()
+		return false, err
+	}
+	return false, nil
 }
 
-// add audio/video/image/doc message, stored by message id
-//func (db *MessageDatabase) AddOtherMessage(msg *interface{}) {
-//TODO: needed?
-//var id = ""
-//switch v := (*msg).(type) {
-//default:
-//case whatsapp.ImageMessage:
-//id = v.Info.Id
-//case whatsapp.DocumentMessage:
-//id = v.Info.Id
-//case whatsapp.AudioMessage:
-//id = v.Info.Id
-//case whatsapp.VideoMessage:
-//id = v.Info.Id
-//}
-//if id != "" {
-//db.otherMessages[id] = msg
-//}
-//}
-
-func (db *MessageDatabase) AddContact(contact Contact) {
+func (db *MessageDatabase) AddContact(contact Contact) error {
 	db.contacts[contact.Id] = contact
+	return nil
 }
 
-func (db *MessageDatabase) AddChat(chat Chat) {
-	db.chats[chat.Id] = chat
+//func (db *MessageDatabase) AddContact(contact Contact) error {
+//  //fmt.Printf("Get: %s ", contact.Id)
+//  if result, err := db.store.Query("SELECT * FROM contacts WHERE id=$1", contact.Id); err == nil {
+//    defer result.Close()
+//    if result.Next() {
+//      db.store.Exec(`DELETE FROM contacts WHERE id=$1`, contact.Id)
+//    }
+//  } else {
+//    defer result.Close()
+//    return err
+//  }
+//  if _, err := db.store.Exec(`INSERT INTO contacts (
+//        id,
+//        name,
+//        short
+//      )
+//      VALUES ($1,$2,$3)`,
+//    contact.Id,
+//    contact.Name,
+//    contact.Short,
+//  ); err != nil {
+//    return err
+//  }
+//  return nil
+//}
+
+func (db *MessageDatabase) AddChat(chat Chat) error {
+	if result, err := db.store.Query("SELECT * FROM chats WHERE id=$1", chat.Id); err == nil {
+		defer result.Close()
+		if result.Next() {
+			db.store.Exec(`DELETE FROM chats WHERE id=$1`, chat.Id)
+		}
+	} else {
+		defer result.Close()
+		return err
+	}
+	db.store.Exec(`INSERT INTO chats (
+        id,
+        isgroup,
+        unread,
+        lastmessage
+      )
+      VALUES ($1,$2,$3,$4)`,
+		chat.Id,
+		chat.IsGroup,
+		chat.Unread,
+		chat.LastMessage,
+	)
+	return nil
 }
 
 // get an array of all chat ids
 func (db *MessageDatabase) GetChatIds() []Chat {
-	keys := make([]Chat, len(db.chats))
-	i := 0
-	for _, k := range db.chats {
-		keys[i] = k
-		i++
+	var ret []Chat
+	if result, err := db.store.Query("SELECT id, isgroup, unread, lastmessage FROM chats"); err == nil {
+		defer result.Close()
+		for result.Next() {
+			chat := Chat{}
+			result.Scan(&chat.Id, &chat.IsGroup, &chat.Unread, &chat.LastMessage)
+			chat.Name = db.GetIdName(chat.Id)
+			ret = append(ret, chat)
+		}
+	} else {
+		defer result.Close()
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		return db.latestMessage[keys[i].Id] > db.latestMessage[keys[j].Id]
-	})
-	return keys
+	//TODO:sort, lastmsg
+	return ret
 }
 
 // gets a pretty name for a whatsapp id
@@ -137,26 +276,86 @@ func (sm *MessageDatabase) GetIdShort(id string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 }
 
-//func (db *MessageDatabase) GetMessageInfo(id string) string {
-//if _, ok := db.otherMessages[id]; ok {
-//return "[yellow]OtherMessage[-]"
+//// gets a pretty name for a whatsapp id
+//func (db *MessageDatabase) GetIdName(id string) string {
+//  if result, err := db.store.Query("SELECT name, short FROM contacts WHERE id=$1", id); err == nil {
+//    defer result.Close()
+//    if result.Next() {
+//      var name = ""
+//      var short = ""
+//      result.Scan(&name, &short)
+//      //fmt.Printf("Found %s/%s", name, short)
+//      if name != "" {
+//        return name
+//      }
+//      if short != "" {
+//        return short
+//      }
+//    }
+//  } else {
+//    defer result.Close()
+//  }
+//  return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 //}
-//out := ""
-//if msg, ok := db.messagesById[id]; ok {
-//out += "[yellow]ID: " + msg.Id + "[-]\n"
-//out += "[yellow]Contact ID: " + msg.ContactId + "[-]\n"
-//out += "[yellow]SenderJid: " + msg.Info.SenderJid + "[-]\n"
-//out += "[yellow]Participant: " + msg.ContextInfo.Participant + "[-]\n"
-//out += "[yellow]QuotedMessageID: " + msg.ContextInfo.QuotedMessageID + "[-]\n"
-//}
-//return out
+
+//// gets a short name for a whatsapp id
+//func (db *MessageDatabase) GetIdShort(id string) string {
+//  if result, err := db.store.Query("SELECT name, short FROM contacts WHERE id=$1", id); err == nil {
+//    defer result.Close()
+//    if result.Next() {
+//      var name = ""
+//      var short = ""
+//      result.Scan(&name, &short)
+//      if short != "" {
+//        return short
+//      }
+//      if name != "" {
+//        return name
+//      }
+//    }
+//  } else {
+//    defer result.Close()
+//  }
+//  return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 //}
 
 // get a string containing all messages for a chat by chat id
 func (db *MessageDatabase) GetMessages(wid string) []Message {
-	var arr = []Message{}
-	for _, element := range db.textMessages[wid] {
-		arr = append(arr, *element)
+	var ret []Message
+	if result, err := db.store.Query(`SELECT 
+      id,
+      chatid,
+      contactid,
+      timestamp,
+      fromme,
+      forwarded,
+      text,
+      link,
+      messagetype,
+      medialink
+    FROM messages where chatid=$1`, wid); err == nil {
+		defer result.Close()
+		for result.Next() {
+			message := Message{}
+			result.Scan(
+				&message.Id,
+				&message.ChatId,
+				&message.ContactId,
+				&message.Timestamp,
+				&message.FromMe,
+				&message.Forwarded,
+				&message.Text,
+				&message.Link,
+				&message.MessageType,
+				&message.MediaLink,
+			)
+			message.ContactName = db.GetIdName(message.ContactId)
+			message.ContactShort = db.GetIdShort(message.ContactId)
+			ret = append(ret, message)
+		}
+	} else {
+		defer result.Close()
 	}
-	return arr
+	//TODO:sort, lastmsg
+	return ret
 }

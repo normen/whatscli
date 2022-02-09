@@ -5,12 +5,6 @@ import (
 	"time"
 )
 
-type Backend interface {
-	Start(chan interface{}) error
-	Stop() error
-	Command(string, []string) error
-}
-
 type SessionManager struct {
 	backChannel     chan interface{}
 	CommandChannel  chan Command
@@ -23,14 +17,17 @@ type SessionManager struct {
 	lastSent        time.Time
 }
 
-func NewSessionManager(handler UiMessageHandler, back Backend) *SessionManager {
+func NewSessionManager(handler UiMessageHandler, back Backend) (*SessionManager, error) {
 	sm := &SessionManager{}
-	sm.db = NewMessageDatabase()
+	var err error
+	if sm.db, err = NewMessageDatabase(); err != nil {
+		return nil, err
+	}
 	sm.uiHandler = handler
 	sm.backend = back
 	sm.backChannel = make(chan interface{}, 10)
 	sm.CommandChannel = make(chan Command, 10)
-	return sm
+	return sm, nil
 }
 
 func (sm *SessionManager) StartManager() error {
@@ -47,12 +44,20 @@ func (sm *SessionManager) runManager() {
 	for sm.started == true {
 		select {
 		case cmd := <-sm.CommandChannel:
-			sm.backend.Command(cmd.Name, cmd.Params)
+			switch cmd.Name {
+			case "select":
+				sm.setCurrentReceiver(cmd.Params[0])
+			default:
+				sm.backend.Command(cmd.Name, cmd.Params)
+			}
 		case in := <-sm.backChannel:
 			switch msg := in.(type) {
 			default:
 			case Message:
-				didNew := sm.db.Message(&msg)
+				didNew, err := sm.db.Message(&msg)
+				if err != nil {
+					sm.uiHandler.PrintError(err)
+				}
 				if msg.ChatId == sm.currentReceiver {
 					if didNew {
 						sm.uiHandler.NewMessage(msg)
@@ -87,10 +92,18 @@ func (sm *SessionManager) runManager() {
 				}
 				sm.uiHandler.SetChats(sm.db.GetChatIds())
 			case Contact:
-				sm.db.AddContact(msg)
+				err := sm.db.AddContact(msg)
+				if err != nil {
+					sm.uiHandler.PrintError(err)
+				}
+
 				sm.uiHandler.SetChats(sm.db.GetChatIds())
 			case Chat:
-				sm.db.AddChat(msg)
+				//TODO:used?
+				err := sm.db.AddChat(msg)
+				if err != nil {
+					sm.uiHandler.PrintError(err)
+				}
 				sm.uiHandler.SetChats(sm.db.GetChatIds())
 			case BatteryMsg:
 				sm.statusInfo.BatteryLoading = msg.loading
@@ -120,4 +133,11 @@ func (sm *SessionManager) runManager() {
 		}
 	}
 	sm.backend.Stop()
+}
+
+// set the currently selected chat
+func (sm *SessionManager) setCurrentReceiver(id string) {
+	sm.currentReceiver = id
+	screen := sm.db.GetMessages(id)
+	sm.uiHandler.NewScreen(screen)
 }

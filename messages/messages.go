@@ -3,7 +3,6 @@ package messages
 
 import "io"
 
-// TODO: move these funcs/interface to channels
 type UiMessageHandler interface {
 	NewMessage(Message)
 	NewScreen([]Message)
@@ -14,6 +13,12 @@ type UiMessageHandler interface {
 	SetStatus(SessionStatus)
 	OpenFile(string)
 	GetWriter() io.Writer
+}
+
+type Backend interface {
+	Start(chan interface{}) error
+	Stop() error
+	Command(string, []string) error
 }
 
 // data struct for current session status
@@ -55,10 +60,11 @@ type Message struct {
 	FromMe       bool
 	Forwarded    bool
 	Text         string
-	Orig         interface{}
+	Link         string
+	MessageType  string
+	MediaLink    string
 }
 
-// internal contact representation to abstract from message lib
 type Chat struct {
 	Id      string
 	IsGroup bool
