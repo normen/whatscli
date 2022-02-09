@@ -44,6 +44,7 @@ func (sm *SessionManager) runManager() {
 	for sm.started == true {
 		select {
 		case cmd := <-sm.CommandChannel:
+			// some commands are processed here
 			switch cmd.Name {
 			case "select":
 				sm.setCurrentReceiver(cmd.Params[0])

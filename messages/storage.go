@@ -236,7 +236,7 @@ func (db *MessageDatabase) AddChat(chat Chat) error {
 // get an array of all chat ids
 func (db *MessageDatabase) GetChatIds() []Chat {
 	var ret []Chat
-	if result, err := db.store.Query("SELECT id, isgroup, unread, lastmessage FROM chats"); err == nil {
+	if result, err := db.store.Query("SELECT id, isgroup, unread, lastmessage FROM chats ORDER by lastmessage DESC"); err == nil {
 		defer result.Close()
 		for result.Next() {
 			chat := Chat{}
@@ -333,7 +333,7 @@ func (db *MessageDatabase) GetMessages(wid string) []Message {
       link,
       messagetype,
       medialink
-    FROM messages where chatid=$1`, wid); err == nil {
+    FROM messages where chatid=$1 ORDER BY timestamp`, wid); err == nil {
 		defer result.Close()
 		for result.Next() {
 			message := Message{}

@@ -62,8 +62,16 @@ func (b *MeowBackend) errf(text string, parms ...interface{}) {
 
 func (b *MeowBackend) Command(cmd string, args []string) error {
 	switch cmd {
-	case "reconnect":
+	case "backlog":
+		//TODO
+	case "disconnect":
 		b.cli.Disconnect()
+	case "connect":
+		err := b.cli.Connect()
+		if err != nil {
+			b.errf("Failed to connect: %v", err)
+		}
+	case "login":
 		err := b.cli.Connect()
 		if err != nil {
 			b.errf("Failed to connect: %v", err)
@@ -74,6 +82,22 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 			b.errf("Error logging out: %v", err)
 		} else {
 			b.logf("Successfully logged out")
+		}
+	case "send":
+		if len(args) < 2 {
+			b.errf("Usage: send <jid> <text>")
+			return nil
+		}
+		recipient, ok := parseJID(args[0])
+		if !ok {
+			return nil
+		}
+		msg := &waProto.Message{Conversation: proto.String(strings.Join(args[1:], " "))}
+		ts, err := b.cli.SendMessage(recipient, "", msg)
+		if err != nil {
+			b.errf("Error sending message: %v", err)
+		} else {
+			b.logf("Message sent (server timestamp: %s)", ts)
 		}
 	case "appstate":
 		if len(args) < 1 {
@@ -248,22 +272,6 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 			b.errf("Failed to join group via invite link: %v", err)
 		} else {
 			b.logf("Joined %s", groupID)
-		}
-	case "send":
-		if len(args) < 2 {
-			b.errf("Usage: send <jid> <text>")
-			return nil
-		}
-		recipient, ok := parseJID(args[0])
-		if !ok {
-			return nil
-		}
-		msg := &waProto.Message{Conversation: proto.String(strings.Join(args[1:], " "))}
-		ts, err := b.cli.SendMessage(recipient, "", msg)
-		if err != nil {
-			b.errf("Error sending message: %v", err)
-		} else {
-			b.logf("Message sent (server timestamp: %s)", ts)
 		}
 	case "sendimg":
 		if len(args) < 2 {
