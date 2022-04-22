@@ -6,6 +6,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	_ "mime"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
@@ -16,10 +22,6 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 
 	"github.com/normen/whatscli/messages"
 )
@@ -311,22 +313,6 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 		}
 		b.syncAllContacts()
 	case *events.Message:
-		//img := evt.Message.GetImageMessage()
-		//if img != nil {
-		//  data, err := b.cli.Download(img)
-		//  if err != nil {
-		//    b.logf("Failed to download image: %v", err)
-		//    return
-		//  }
-		//  exts, _ := mime.ExtensionsByType(img.GetMimetype())
-		//  path := fmt.Sprintf("%s%s", evt.Info.ID, exts[0])
-		//  err = os.WriteFile(path, data, 0600)
-		//  if err != nil {
-		//    b.logf("Failed to save image: %v", err)
-		//    return
-		//  }
-		//  b.logf("Saved image in message to %s", path)
-		//}
 		message := &messages.Message{
 			Id:        evt.Info.ID,
 			ChatId:    evt.Info.Chat.String(),
@@ -336,6 +322,7 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 			Forwarded: false, //TODO
 			Text:      evt.Message.GetConversation(),
 		}
+		b.getExtendedMessage(evt.Message, message)
 		b.backChannel <- message
 	case *events.Receipt:
 		if evt.Type == events.ReceiptTypeRead || evt.Type == events.ReceiptTypeReadSelf {
@@ -381,6 +368,7 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 						Forwarded: false, //TODO
 						Text:      msg.Message.Message.GetConversation(),
 					}
+					b.getExtendedMessage(msg.Message.Message, &message)
 					b.backChannel <- message
 				}
 			}
@@ -398,9 +386,61 @@ func (b *MeowBackend) handler(rawEvt interface{}) {
 	}
 }
 
+func (b *MeowBackend) getExtendedMessage(msg *waProto.Message, message *messages.Message) {
+	if msg != nil {
+		pmsg := msg.GetProtocolMessage()
+		if pmsg != nil {
+			message.Id = pmsg.Key.GetId()
+			message.ContactId = pmsg.Key.GetRemoteJid()
+			message.FromMe = pmsg.Key.GetFromMe()
+		}
+		img := msg.ImageMessage
+		if img != nil {
+			message.MediaLink = img.GetDirectPath()
+			message.MessageType = img.GetMimetype()
+			message.MediaData1 = img.GetMediaKey()
+			message.MediaData2 = img.GetFileSha256()
+			message.MediaData3 = img.GetFileEncSha256()
+			message.Text = "[IMAGE] " + img.GetCaption()
+		}
+		audio := msg.AudioMessage
+		if audio != nil {
+			message.MediaLink = audio.GetDirectPath()
+			message.MessageType = audio.GetMimetype()
+			message.MediaData1 = audio.GetMediaKey()
+			message.MediaData2 = audio.GetFileSha256()
+			message.MediaData3 = audio.GetFileEncSha256()
+			message.Text = "[AUDIO]"
+		}
+		doc := msg.DocumentMessage
+		if doc != nil {
+			message.MediaLink = doc.GetDirectPath()
+			message.MessageType = doc.GetMimetype()
+			message.MediaData1 = doc.GetMediaKey()
+			message.MediaData2 = doc.GetFileSha256()
+			message.MediaData3 = doc.GetFileEncSha256()
+			message.Text = "[DOC]"
+		}
+	}
+}
+
 func (b *MeowBackend) Stop() error {
 	b.cli.Disconnect()
 	b.backChannel = nil
+	return nil
+}
+
+func (b *MeowBackend) Download(message *messages.Message, path string) error {
+	//exts, _ := mime.ExtensionsByType(message.MessageType)
+	dlmsg := NewDlMsg(message)
+	data, err := b.cli.Download(dlmsg)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(path, data, 0600)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -421,4 +461,27 @@ func parseJID(arg string) (types.JID, bool) {
 		}
 		return recipient, true
 	}
+}
+
+// wrapper for downloading messages using whatsmeow
+type DlMsg struct {
+	proto.Message
+	m *messages.Message
+}
+
+func NewDlMsg(message *messages.Message) *DlMsg {
+	return &DlMsg{m: message}
+}
+
+func (m *DlMsg) GetDirectPath() string {
+	return m.m.MediaLink
+}
+func (m *DlMsg) GetMediaKey() []byte {
+	return m.m.MediaData1
+}
+func (m *DlMsg) GetFileSha256() []byte {
+	return m.m.MediaData2
+}
+func (m *DlMsg) GetFileEncSha256() []byte {
+	return m.m.MediaData3
 }

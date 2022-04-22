@@ -2,11 +2,10 @@ package messages
 
 import (
 	"database/sql"
-	//"fmt"
 	"strings"
 )
 
-const DB_VERSION = 0
+const DB_VERSION = 1
 
 type MessageDatabase struct {
 	store *sql.DB
@@ -47,7 +46,10 @@ func NewMessageDatabase() (*MessageDatabase, error) {
     text TEXT,
     link TEXT,
     messagetype TEXT,
-    medialink TEXT
+    medialink TEXT,
+    mediadata1 BLOB,
+    mediadata2 BLOB,
+    mediadata3 BLOB
   )`); err != nil {
 		return nil, err
 	}
@@ -58,33 +60,39 @@ func NewMessageDatabase() (*MessageDatabase, error) {
 }
 
 func (db *MessageDatabase) UpdateDatabaseVersion() error {
-	if rows, err := db.store.Query("SELECT dbversion from version"); err != nil {
+	if rows, err := db.store.Query("SELECT dbversion from version"); err == nil {
 		defer rows.Close()
 		if rows.Next() {
 			var dbVersion int
 			rows.Scan(&dbVersion)
+			rows.Close()
 			if DB_VERSION > dbVersion {
-				//TODO:update db
-				if _, err := db.store.Exec(`DELETE * FROM version`); err != nil {
+				if _, err := db.store.Exec(`DELETE FROM version`); err != nil {
 					return err
 				}
 				if dbVersion < 1 {
-					//do stuff etc.
+					if _, err := db.store.Exec(`ALTER TABLE messages ADD mediadata1 BLOB`); err != nil {
+						return err
+					}
+					if _, err := db.store.Exec(`ALTER TABLE messages ADD mediadata2 BLOB`); err != nil {
+						return err
+					}
+					if _, err := db.store.Exec(`ALTER TABLE messages ADD mediadata3 BLOB`); err != nil {
+						return err
+					}
 				}
 				if dbVersion < 2 {
 					//do stuff etc.
 				}
-				if _, err := db.store.Exec(`INSERT INTO version (dbversion) VALUES($1)`, DB_VERSION); err != nil {
-					return err
-				}
-			}
-		} else {
-			if _, err := db.store.Exec(`INSERT INTO version (dbversion) VALUES($1)`, DB_VERSION); err != nil {
-				return err
+			} else {
+				return nil
 			}
 		}
 	} else {
 		defer rows.Close()
+		return err
+	}
+	if _, err := db.store.Exec(`INSERT INTO version (dbversion) VALUES($1)`, DB_VERSION); err != nil {
 		return err
 	}
 	return nil
@@ -103,9 +111,12 @@ func (db *MessageDatabase) Message(msg *Message) (bool, error) {
       text,
       link,
       messagetype,
-      medialink
+      medialink,
+      mediadata1,
+      mediadata2,
+      mediadata3
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 		ON CONFLICT (id) DO NOTHING
     `,
 		msg.Id,
@@ -117,7 +128,10 @@ func (db *MessageDatabase) Message(msg *Message) (bool, error) {
 		msg.Text,
 		msg.Link,
 		msg.MessageType,
-		msg.MediaLink); err != nil {
+		msg.MediaLink,
+		msg.MediaData1,
+		msg.MediaData2,
+		msg.MediaData3); err != nil {
 		return false, err
 	}
 
@@ -141,7 +155,6 @@ func (db *MessageDatabase) AddChat(chat Chat) error {
       ON CONFLICT (id) DO UPDATE SET name=$3, unread=$4, lastmessage=$5
       WHERE lastmessage<=$5
       `,
-		//ON CONFLICT (id) DO UPDATE SET name=$3, unread=$4, lastmessage=$5
 		chat.Id,
 		chat.IsGroup,
 		chat.Name,
@@ -209,7 +222,10 @@ func (db *MessageDatabase) GetMessages(wid string) []Message {
       text,
       link,
       messagetype,
-      medialink
+      medialink,
+      mediadata1,
+      mediadata2,
+      mediadata3
     FROM messages where chatid=$1 ORDER BY timestamp`, wid); err == nil {
 		defer result.Close()
 		for result.Next() {
@@ -225,6 +241,9 @@ func (db *MessageDatabase) GetMessages(wid string) []Message {
 				&message.Link,
 				&message.MessageType,
 				&message.MediaLink,
+				&message.MediaData1,
+				&message.MediaData2,
+				&message.MediaData3,
 			)
 			message.ContactName = db.GetIdName(message.ContactId)
 			message.ContactShort = db.GetIdShort(message.ContactId)

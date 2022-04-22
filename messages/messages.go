@@ -19,6 +19,7 @@ type Backend interface {
 	Start(chan interface{}) error
 	Stop() error
 	Command(string, []string) error
+	Download(*Message, string) error
 }
 
 // data struct for current session status
@@ -63,6 +64,9 @@ type Message struct {
 	Link         string
 	MessageType  string
 	MediaLink    string
+	MediaData1   []byte
+	MediaData2   []byte
+	MediaData3   []byte
 }
 
 type Chat struct {
