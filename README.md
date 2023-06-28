@@ -22,6 +22,7 @@ Things that work.
 
 Heres some things you might expect to work that don't. Plus some other things I should mention.
 
+- Currently doesn't work (crashes) for many countries / accounts due to changes in the backend server, see issues #72 and #51
 - Only shows existing chats
 - No auto-reconnect when connection drops
 - No automation of messages, no sending of messages through shell commands
