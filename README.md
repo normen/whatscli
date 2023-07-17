@@ -28,6 +28,11 @@ Heres some things you might expect to work that don't. Plus some other things I 
 - No automation of messages, no sending of messages through shell commands
 - FaceBook obviously doesn't endorse or like these kinds of apps and they're likely to break when FaceBook changes stuff in their web app
 
+## Similar Apps
+
+Similar but more features:
+- [Nchat](https://github.com/d99kris/nchat)
+
 ## Installation
 
 How to get it running and how to use it
