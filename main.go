@@ -39,7 +39,11 @@ var keyBindings *cbind.Configuration
 var uiHandler messages.UiMessageHandler
 
 func main() {
-	config.InitConfig()
+	err := config.InitConfig()
+	if err != nil {
+    fmt.Printf("Error parsing config: %+v\n", err)
+	}
+
 	uiHandler = UiHandler{}
 	sessionManager = &messages.SessionManager{}
 	sessionManager.Init(uiHandler)
@@ -51,15 +55,15 @@ func main() {
 	gridLayout.SetRows(1, 0, 1)
 	gridLayout.SetColumns(sideBarWidth, 0, sideBarWidth)
 	gridLayout.SetBorders(true)
-	gridLayout.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	gridLayout.SetBordersColor(tcell.ColorNames[config.Config.Colors.Borders])
+	gridLayout.SetBackgroundColor(config.Config.Colors.Background.TColor)
+	gridLayout.SetBordersColor(config.Config.Colors.Borders.TColor)
 
 	cmdPrefix := config.Config.General.CmdPrefix
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetScrollable(false)
 	topBar.SetText("[::b] WhatsCLI " + VERSION + "  [-::d]Type " + cmdPrefix + "help or press " + config.Config.Keymap.CommandHelp + " for help")
-	topBar.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
+	topBar.SetBackgroundColor(config.Config.Colors.Background.TColor)
 
 	infoBar = tview.NewTextView()
 	infoBar.SetDynamicColors(true)
@@ -72,15 +76,15 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
-	textView.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	textView.SetTextColor(tcell.ColorNames[config.Config.Colors.Text])
+	textView.SetBackgroundColor(config.Config.Colors.Background.TColor)
+	textView.SetTextColor(config.Config.Colors.Text.TColor)
 
 	PrintHelp()
 
 	textInput = tview.NewInputField()
-	textInput.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	textInput.SetFieldBackgroundColor(tcell.ColorNames[config.Config.Colors.InputBackground])
-	textInput.SetFieldTextColor(tcell.ColorNames[config.Config.Colors.InputText])
+	textInput.SetBackgroundColor(config.Config.Colors.Background.TColor)
+	textInput.SetFieldBackgroundColor(config.Config.Colors.InputBackground.TColor)
+	textInput.SetFieldTextColor(config.Config.Colors.InputText.TColor)
 	textInput.SetChangedFunc(func(change string) {
 		sndTxt = change
 	})
@@ -133,11 +137,11 @@ func main() {
 func MakeTree() *tview.TreeView {
 	rootDir := "Chats"
 	chatRoot = tview.NewTreeNode(rootDir).
-		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
+		SetColor(config.Config.Colors.ListHeader.TColor)
 	treeView = tview.NewTreeView().
 		SetRoot(chatRoot).
 		SetCurrentNode(chatRoot)
-	treeView.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
+	treeView.SetBackgroundColor(config.Config.Colors.Background.TColor)
 
 	// If a chat was selected, open it.
 	treeView.SetChangedFunc(func(node *tview.TreeNode) {
@@ -537,7 +541,7 @@ func PrintError(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(textView, "["+config.Config.Colors.Negative+"]", err.Error(), "[-]")
+	fmt.Fprintln(textView, "["+config.Config.Colors.Negative.HexCode()+"]", err.Error(), "[-]")
 }
 
 // prints an error to the TextView
@@ -545,7 +549,7 @@ func PrintErrorMsg(text string, err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(textView, "["+config.Config.Colors.Negative+"]", text, err.Error(), "[-]")
+	fmt.Fprintln(textView, "["+config.Config.Colors.Negative.HexCode()+"]", text, err.Error(), "[-]")
 }
 
 // prints an image attachment to the TextView (by message id)
@@ -575,23 +579,23 @@ func PrintImage(path string) {
 func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	out := " "
 	if statusInfo.Connected {
-		out += "[" + config.Config.Colors.Positive + "]online[-]"
+		out += "[" + config.Config.Colors.Positive.HexCode() + "]online[-]"
 	} else {
-		out += "[" + config.Config.Colors.Negative + "]offline[-]"
+		out += "[" + config.Config.Colors.Negative.HexCode() + "]offline[-]"
 	}
 	out += " "
 	out += "[::d] ("
 	out += fmt.Sprint(statusInfo.BatteryCharge)
 	out += "%"
 	if statusInfo.BatteryLoading {
-		out += " [" + config.Config.Colors.Positive + "]L[-]"
+		out += " [" + config.Config.Colors.Positive.HexCode() + "]L[-]"
 	} else {
-		out += " [" + config.Config.Colors.Negative + "]l[-]"
+		out += " [" + config.Config.Colors.Negative.HexCode() + "]l[-]"
 	}
 	if statusInfo.BatteryPowersave {
-		out += " [" + config.Config.Colors.Negative + "]S[-]"
+		out += " [" + config.Config.Colors.Negative.HexCode() + "]S[-]"
 	} else {
-		out += " [" + config.Config.Colors.Positive + "]s[-]"
+		out += " [" + config.Config.Colors.Positive.HexCode() + "]s[-]"
 	}
 	out += ")[::-] "
 	out += statusInfo.LastSeen
@@ -626,7 +630,7 @@ func getTextMessageString(msg *messages.Message) string {
 	out := ""
 	text := tview.Escape(msg.Text)
 	if msg.Forwarded {
-		text = "[" + config.Config.Colors.ForwardedText + "]" + text + "[-]"
+		text = "[" + config.Config.Colors.ForwardedText.HexCode() + "]" + text + "[-]"
 	}
 	tim := time.Unix(int64(msg.Timestamp), 0)
 	time := tim.Format("02-01-06 15:04:05")
@@ -634,9 +638,9 @@ func getTextMessageString(msg *messages.Message) string {
 	out += msg.Id
 	out += "\"]"
 	if msg.FromMe { //msg from me
-		out += "[-::d](" + time + ") [" + colorMe + "::b]Me: [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorMe.HexCode() + "::b]Me: [-::-]" + text
 	} else { // message from others
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + msg.ContactShort + ": [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorContact.HexCode() + "::b]" + msg.ContactShort + ": [-::-]" + text
 	}
 	out += "[\"\"]"
 	return out
@@ -680,7 +684,7 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 				name = strings.TrimSuffix(strings.TrimSuffix(element.Id, messages.GROUPSUFFIX), messages.CONTACTSUFFIX)
 			}
 			if element.Unread > 0 {
-				name += " ([" + config.Config.Colors.UnreadCount + "]" + fmt.Sprint(element.Unread) + "[-])"
+				name += " ([" + config.Config.Colors.UnreadCount.HexCode() + "]" + fmt.Sprint(element.Unread) + "[-])"
 				//tim := time.Unix(element.LastMessage, 0)
 				//sin := time.Since(tim)
 				//since := fmt.Sprintf("%s", sin)
@@ -691,9 +695,9 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 				SetReference(element).
 				SetSelectable(true)
 			if element.IsGroup {
-				node.SetColor(tcell.ColorNames[config.Config.Colors.ListGroup])
+				node.SetColor(config.Config.Colors.ListGroup.TColor)
 			} else {
-				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
+				node.SetColor(config.Config.Colors.ListContact.TColor)
 			}
 			// store new currentReceiver, else the selection on the left goes off
 			if element.Id == oldId {

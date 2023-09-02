@@ -276,7 +276,7 @@ func (sm *SessionManager) execCommand(command Command) {
 	cmd := command.Name
 	switch cmd {
 	default:
-		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Unknown command: [-]" + cmd)
+		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative.HexCode() + "]Unknown command: [-]" + cmd)
 	case "backlog":
 		if sm.currentReceiver != "" {
 			count := config.Config.General.BacklogMsgQuantity
@@ -673,7 +673,7 @@ func (sm *SessionManager) execCommand(command Command) {
 
 // helper for built-in command help
 func (sm *SessionManager) printCommandUsage(command string, usage string) {
-	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] " + command + " " + usage)
+	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative.HexCode() + "]Usage:[-] " + command + " " + usage)
 }
 
 // check if parameters for command are okay
