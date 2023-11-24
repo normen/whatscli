@@ -25,9 +25,9 @@ import (
 
 	"github.com/normen/whatscli/messages"
 )
-
 var dbDialect = flag.String("db-dialect", "sqlite3", "Database dialect (sqlite3 or postgres)")
 var dbAddress = flag.String("db-address", "file:mdtest.db?_foreign_keys=on", "Database address")
+var logLevel = "INFO"
 
 type MeowBackend struct {
 	msgdb       *sql.DB
@@ -101,7 +101,7 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 			return nil
 		}
 		msg := &waProto.Message{Conversation: proto.String(strings.Join(args[1:], " "))}
-		_, err := b.cli.SendMessage(recipient, "", msg)
+		_, err := b.cli.SendMessage(context.Background(), recipient, msg)
 		if err != nil {
 			b.Errorf("Error sending message: %v", err)
 		}
@@ -109,7 +109,7 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 		b.Logf("%s", b.cli.SendPresence(types.Presence(args[0])))
 	case "chatpresence":
 		jid, _ := types.ParseJID(args[1])
-		b.Logf("%s", b.cli.SendChatPresence(types.ChatPresence(args[0]), jid))
+		b.Logf("%s", b.cli.SendChatPresence(jid, types.ChatPresence(args[0]), ""))
 	case "privacysettings":
 		resp, err := b.cli.TryFetchPrivacySettings(false)
 		if err != nil {
@@ -224,7 +224,7 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 			FileSha256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(data))),
 		}}
-		_, err = b.cli.SendMessage(recipient, "", msg)
+		_, err = b.cli.SendMessage(context.Background(), recipient, msg)
 		if err != nil {
 			b.Errorf("Error sending image message: %v", err)
 		}
@@ -234,8 +234,8 @@ func (b *MeowBackend) Command(cmd string, args []string) error {
 
 func (b *MeowBackend) Start(bkChan chan interface{}) error {
 	b.backChannel = bkChan
-	//dbLog := waLog.Stdout("Database", logLevel, true)
-	storeContainer, err := sqlstore.New(*dbDialect, *dbAddress, b)
+	dbLog := waLog.Stdout("Database", logLevel, true)
+	storeContainer, err := sqlstore.New(*dbDialect, *dbAddress, dbLog)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (b *MeowBackend) Start(bkChan chan interface{}) error {
 	if err != nil {
 		return err
 	}
-	b.cli = whatsmeow.NewClient(device, b)
+	b.cli = whatsmeow.NewClient(device, waLog.Stdout("Client", logLevel, true))
 	ch, err := b.cli.GetQRChannel(context.Background())
 	if err != nil {
 		// This error means that we're already logged in, so ignore it.
@@ -257,7 +257,7 @@ func (b *MeowBackend) Start(bkChan chan interface{}) error {
 					qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, b.uiHandler.GetWriter())
 				} else {
 					b.Infof("QR channel result: %s", evt.Event)
-					//fmt.Printf("QR channel result: %s\n", evt.Event)
+					fmt.Printf("QR channel result: %s\n", evt.Event)
 				}
 			}
 		}()
