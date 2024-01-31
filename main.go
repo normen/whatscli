@@ -42,6 +42,8 @@ var uiHandler messages.UiMessageHandler
 
 func main() {
 	config.InitConfig()
+    fn := config.LogOutput()
+	defer fn()
 	uiHandler = UiHandler{}
 	backend = backends.NewMeowBackend(uiHandler)
 	var err error
