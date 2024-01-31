@@ -30,6 +30,8 @@ type General struct {
 	UseTerminalBell     bool
 	NotificationTimeout int64
 	BacklogMsgQuantity  int
+    DebugMode           bool
+    LogFilePath         string
 }
 
 type Keymap struct {
@@ -83,6 +85,8 @@ var Config = IniFile{
 		UseTerminalBell:     false,
 		NotificationTimeout: 60,
 		BacklogMsgQuantity:  10,
+        DebugMode:           false,
+        LogFilePath:         "/path/to/your/logfile",
 	},
 	&Keymap{
 		SwitchPanels:    "Tab",
@@ -182,8 +186,12 @@ func GetHomeDir() string {
 	return usr.HomeDir + string(os.PathSeparator)
 }
 
+func IsDebugMode() bool {
+    return Config.General.DebugMode
+}
+
 func LogOutput() func() {
-    logfile := "logfile";
+    logfile := Config.General.LogFilePath;
     // open file read/write | create if not exist | clear file at open if exists
     f, _ := os.OpenFile(logfile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 
