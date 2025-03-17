@@ -1,163 +1,232 @@
 package messages
 
 import (
+	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/Rhymen/go-whatsapp"
+	"sync"
+	"time"
 )
 
+// MessageDatabase stores messages and contact data
 type MessageDatabase struct {
-	textMessages  map[string][]*whatsapp.TextMessage // text messages stored by RemoteJid
-	messagesById  map[string]*whatsapp.TextMessage   // text messages stored by message ID
-	latestMessage map[string]uint64                  // last message from RemoteJid
-	otherMessages map[string]*interface{}            // other non-text messages, stored by ID
-	contacts      map[string]Contact
+	messages      map[string][]Message
+	messagesById  map[string]Message
 	chats         map[string]Chat
+	contacts      map[string]Contact
+	contactLock   sync.RWMutex
+	chatLock      sync.RWMutex
+	messageLock   sync.RWMutex
 }
 
-// initialize the database
-func (db *MessageDatabase) Init() {
-	//var this = *db
-	db.textMessages = make(map[string][]*whatsapp.TextMessage)
-	db.messagesById = make(map[string]*whatsapp.TextMessage)
-	db.otherMessages = make(map[string]*interface{})
-	db.latestMessage = make(map[string]uint64)
-	db.contacts = make(map[string]Contact)
-	db.chats = make(map[string]Chat)
+// Initializes the message database
+func (md *MessageDatabase) Init() {
+	md.messages = make(map[string][]Message)
+	md.messagesById = make(map[string]Message)
+	md.chats = make(map[string]Chat)
+	md.contacts = make(map[string]Contact)
 }
 
-// add a text message to the database, stored by RemoteJid
-func (db *MessageDatabase) AddTextMessage(msg *whatsapp.TextMessage) bool {
-	//var this = *db
-	var didNew = false
-	var wid = msg.Info.RemoteJid
-	if db.textMessages[wid] == nil {
-		var newArr = []*whatsapp.TextMessage{}
-		db.textMessages[wid] = newArr
-		db.latestMessage[wid] = msg.Info.Timestamp
-		didNew = true
-	} else if db.latestMessage[wid] < msg.Info.Timestamp {
-		db.latestMessage[wid] = msg.Info.Timestamp
-		didNew = true
+// Adds a message to the database
+func (md *MessageDatabase) AddMessage(msg Message) bool {
+	md.messageLock.Lock()
+	defer md.messageLock.Unlock()
+	
+	// Check if we already have this message
+	if _, ok := md.messagesById[msg.Id]; ok {
+		return false
 	}
-	//do we know this chat? if not add
-	if _, ok := db.chats[msg.Info.RemoteJid]; !ok {
-		//don't have this chat!
-		isGroup := strings.Contains(msg.Info.RemoteJid, GROUPSUFFIX)
-		db.chats[msg.Info.RemoteJid] = Chat{
-			msg.Info.RemoteJid,
-			isGroup,
-			db.GetIdName(msg.Info.RemoteJid),
-			1,
-			int64(msg.Info.Timestamp),
-		}
+	
+	// Add to message ID lookup
+	md.messagesById[msg.Id] = msg
+	
+	// Create or get message array for chat
+	msgs, ok := md.messages[msg.ChatId]
+	if !ok {
+		msgs = []Message{}
 	}
-	//check if message exists, ignore otherwise
-	if _, ok := db.messagesById[msg.Info.Id]; !ok {
-		db.messagesById[msg.Info.Id] = msg
-		db.textMessages[wid] = append(db.textMessages[wid], msg)
-		sort.Slice(db.textMessages[wid], func(i, j int) bool {
-			return db.textMessages[wid][i].Info.Timestamp < db.textMessages[wid][j].Info.Timestamp
-		})
-	}
-	return didNew
-}
-
-func (db *MessageDatabase) NewUnreadChat(id string) {
-	if chat, ok := db.chats[id]; ok {
-		chat.Unread++
-		db.chats[id] = chat
-	}
-}
-
-// add audio/video/image/doc message, stored by message id
-func (db *MessageDatabase) AddOtherMessage(msg *interface{}) {
-	var id = ""
-	switch v := (*msg).(type) {
-	default:
-	case whatsapp.ImageMessage:
-		id = v.Info.Id
-	case whatsapp.DocumentMessage:
-		id = v.Info.Id
-	case whatsapp.AudioMessage:
-		id = v.Info.Id
-	case whatsapp.VideoMessage:
-		id = v.Info.Id
-	}
-	if id != "" {
-		db.otherMessages[id] = msg
-	}
-}
-
-func (db *MessageDatabase) AddContact(contact Contact) {
-	db.contacts[contact.Id] = contact
-}
-
-func (db *MessageDatabase) AddChat(chat Chat) {
-	db.chats[chat.Id] = chat
-}
-
-// get an array of all chat ids
-func (db *MessageDatabase) GetChatIds() []Chat {
-	keys := make([]Chat, len(db.chats))
-	i := 0
-	for _, k := range db.chats {
-		keys[i] = k
-		i++
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return db.latestMessage[keys[i].Id] > db.latestMessage[keys[j].Id]
+	
+	// Add message to chat
+	msgs = append(msgs, msg)
+	
+	// Sort by timestamp
+	sort.Slice(msgs, func(i, j int) bool {
+		return msgs[i].Timestamp > msgs[j].Timestamp
 	})
-	return keys
+	
+	// Store updated messages
+	md.messages[msg.ChatId] = msgs
+	
+	// Update or create chat
+	md.updateChatFromMessage(msg)
+	
+	return true
 }
 
-// gets a pretty name for a whatsapp id
-func (sm *MessageDatabase) GetIdName(id string) string {
-	if val, ok := sm.contacts[id]; ok {
-		if val.Name != "" {
-			return val.Name
-		} else if val.Short != "" {
-			return val.Short
+// Update or create a chat based on a message
+func (md *MessageDatabase) updateChatFromMessage(msg Message) {
+	md.chatLock.Lock()
+	defer md.chatLock.Unlock()
+	
+	chat, exists := md.chats[msg.ChatId]
+	if !exists {
+		// Create new chat
+		isGroup := strings.Contains(msg.ChatId, GROUPSUFFIX)
+		chat = Chat{
+			Id:          msg.ChatId,
+			IsGroup:     isGroup,
+			Name:        msg.ContactName,
+			Unread:      0,
+			LastMessage: int64(msg.Timestamp),
+		}
+	} else {
+		// Update last message time
+		chat.LastMessage = int64(msg.Timestamp)
+	}
+	
+	// If this is a new message and not from us, increment unread
+	timeNow := time.Now().Unix()
+	if int64(msg.Timestamp) > timeNow-30 && !msg.FromMe {
+		chat.Unread++
+	}
+	
+	md.chats[msg.ChatId] = chat
+	
+	// Add contact if we don't have it yet
+	if msg.ContactId != "" {
+		md.contactLock.Lock()
+		defer md.contactLock.Unlock()
+		
+		_, exists := md.contacts[msg.ContactId]
+		if !exists {
+			contact := Contact{
+				Id:    msg.ContactId,
+				Name:  msg.ContactName,
+				Short: msg.ContactShort,
+			}
+			md.contacts[msg.ContactId] = contact
 		}
 	}
-	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
 }
 
-// gets a short name for a whatsapp id
-func (sm *MessageDatabase) GetIdShort(id string) string {
-	if val, ok := sm.contacts[id]; ok {
-		//TODO val.notify from whatsapp??
-		if val.Short != "" {
-			return val.Short
-		} else if val.Name != "" {
-			return val.Name
+// Add chat to database
+func (md *MessageDatabase) AddChat(chat Chat) {
+	md.chatLock.Lock()
+	defer md.chatLock.Unlock()
+	md.chats[chat.Id] = chat
+}
+
+// Add contact to database
+func (md *MessageDatabase) AddContact(contact Contact) {
+	md.contactLock.Lock()
+	defer md.contactLock.Unlock()
+	md.contacts[contact.Id] = contact
+}
+
+// NewUnreadChat marks a chat as having unread messages
+func (md *MessageDatabase) NewUnreadChat(chatId string) {
+	md.chatLock.Lock()
+	defer md.chatLock.Unlock()
+	if chat, ok := md.chats[chatId]; ok {
+		chat.Unread++
+		md.chats[chatId] = chat
+	}
+}
+
+// get sorted chat ids
+func (md *MessageDatabase) GetChatIds() []Chat {
+	md.chatLock.RLock()
+	defer md.chatLock.RUnlock()
+	
+	allChats := []Chat{}
+	
+	// Build a single slice with all chats
+	for _, val := range md.chats {
+		allChats = append(allChats, val)
+	}
+	
+	// Sort all chats by LastMessage timestamp (most recent first)
+	sort.Slice(allChats, func(i, j int) bool {
+		return allChats[i].LastMessage > allChats[j].LastMessage
+	})
+	
+	return allChats
+}
+
+// get all messages for a chat id
+func (md *MessageDatabase) GetMessages(wid string) []Message {
+	md.messageLock.RLock()
+	defer md.messageLock.RUnlock()
+	
+	// Return empty array if no messages
+	msgs, ok := md.messages[wid]
+	if !ok {
+		return []Message{}
+	}
+	
+	return msgs
+}
+
+// get info for message
+func (md *MessageDatabase) GetMessageInfo(wid string) string {
+	md.messageLock.RLock()
+	defer md.messageLock.RUnlock()
+	
+	msg, ok := md.messagesById[wid]
+	if !ok {
+		return "Message not found"
+	}
+	
+	name := md.GetIdName(msg.ContactId)
+	short := md.GetIdShort(msg.ContactId)
+	
+	var direction string
+	if msg.FromMe {
+		direction = "→"
+	} else {
+		direction = "←"
+	}
+	
+	timeStr := time.Unix(int64(msg.Timestamp), 0).Format(time.RFC1123)
+	
+	info := fmt.Sprintf("ID: %s\nFrom: %s (%s) %s\nTime: %s\nChat: %s", 
+		msg.Id, name, short, direction, timeStr, msg.ChatId)
+	
+	return info
+}
+
+// get contact id name
+func (md *MessageDatabase) GetIdName(wid string) string {
+	if wid == "" {
+		return "Unknown"
+	}
+	
+	md.contactLock.RLock()
+	defer md.contactLock.RUnlock()
+	
+	if cont, ok := md.contacts[wid]; ok {
+		if cont.Name != "" {
+			return cont.Name
 		}
 	}
-	return strings.TrimSuffix(strings.TrimSuffix(id, CONTACTSUFFIX), GROUPSUFFIX)
+	
+	return wid
 }
 
-func (db *MessageDatabase) GetMessageInfo(id string) string {
-	if _, ok := db.otherMessages[id]; ok {
-		return "[yellow]OtherMessage[-]"
+// get contact id short name
+func (md *MessageDatabase) GetIdShort(wid string) string {
+	if wid == "" {
+		return "Unknown"
 	}
-	out := ""
-	if msg, ok := db.messagesById[id]; ok {
-		out += "[yellow]ID: " + msg.Info.Id + "[-]\n"
-		out += "[yellow]PushName: " + msg.Info.PushName + "[-]\n"
-		out += "[yellow]RemoteJid: " + msg.Info.RemoteJid + "[-]\n"
-		out += "[yellow]SenderJid: " + msg.Info.SenderJid + "[-]\n"
-		out += "[yellow]Participant: " + msg.ContextInfo.Participant + "[-]\n"
-		out += "[yellow]QuotedMessageID: " + msg.ContextInfo.QuotedMessageID + "[-]\n"
+	
+	md.contactLock.RLock()
+	defer md.contactLock.RUnlock()
+	
+	if cont, ok := md.contacts[wid]; ok {
+		if cont.Short != "" {
+			return cont.Short
+		}
 	}
-	return out
-}
-
-// get a string containing all messages for a chat by chat id
-func (db *MessageDatabase) GetMessages(wid string) []whatsapp.TextMessage {
-	var arr = []whatsapp.TextMessage{}
-	for _, element := range db.textMessages[wid] {
-		arr = append(arr, *element)
-	}
-	return arr
+	
+	return wid
 }
