@@ -136,13 +136,13 @@ func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
 	if sm.client == nil {
 		// Create database store for WhatsApp
 		dbPath := config.GetSessionFilePath() + ".db"
-		container, err := sqlstore.New("sqlite3", "file:"+dbPath+"?_foreign_keys=on", waLog.Noop)
+		container, err := sqlstore.New(context.Background(), "sqlite3", "file:"+dbPath+"?_foreign_keys=on", waLog.Noop)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to database: %v", err)
 		}
 		
 		// Get device store
-		deviceStore, err := container.GetFirstDevice()
+		deviceStore, err := container.GetFirstDevice(context.Background())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get device: %v", err)
 		}
@@ -207,7 +207,7 @@ func (sm *SessionManager) loginWithConnection(client *whatsmeow.Client) error {
 			sm.uiHandler.PrintText("Session expired, need to scan QR code again")
 			
 			// Clear the device from the store
-			err := client.Store.Delete()
+			err := client.Store.Delete(context.Background())
 			if err != nil {
 				return fmt.Errorf("failed to clear expired session: %v", err)
 			}
@@ -240,32 +240,37 @@ func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 	sm.uiHandler.PrintText("Please scan the QR code with your phone")
 	
 	// Request QR code
-	qrChan, _ := client.GetQRChannel(context.Background())
-	err := client.Connect()
+	qrChan, err := client.GetQRChannel(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get QR channel: %v", err)
+	}
+	err = client.Connect()
 	if err != nil {
 		return fmt.Errorf("error connecting to WhatsApp: %v", err)
 	}
-	
+
 	for evt := range qrChan {
-		if evt.Event == "code" {
+		switch evt.Event {
+		case "code":
 			// Convert to ASCII QR code and print
 			terminal := qrcode.New()
 			terminal.SetOutput(tview.ANSIWriter(sm.uiHandler.GetWriter()))
 			terminal.Get(evt.Code).Print()
-			
-		} else if evt.Event == "success" {
+		case "success":
 			sm.uiHandler.PrintText("Successfully logged in!")
 			sm.StatusChannel <- StatusMsg{true, nil}
-			
 			// Load existing chats after successful login
 			go sm.loadRecentChats()
-			
 			return nil
-		} else {
+		case "timeout":
+			return errors.New("QR code timed out, please try again")
+		case "err":
+			return fmt.Errorf("QR code error: %v", evt.Error)
+		default:
 			sm.uiHandler.PrintText("QR event: " + evt.Event)
 		}
 	}
-	
+
 	return errors.New("QR code channel closed without success")
 }
 
@@ -283,7 +288,7 @@ func (sm *SessionManager) loadRecentChats() {
 	
 	// Try to get all chats through the whatsmeow API
 	if sm.client.Store != nil && sm.client.Store.Contacts != nil {
-		contacts, err := sm.client.Store.Contacts.GetAllContacts()
+		contacts, err := sm.client.Store.Contacts.GetAllContacts(context.Background())
 		if err != nil {
 			sm.uiHandler.PrintError(fmt.Errorf("failed to load contacts for chat list: %v", err))
 			return
@@ -310,7 +315,7 @@ func (sm *SessionManager) loadRecentChats() {
 			var name string
 			if isGroup {
 				// For groups, try to get the group info
-				groupInfo, err := sm.client.GetGroupInfo(jid)
+				groupInfo, err := sm.client.GetGroupInfo(context.Background(), jid)
 				if err == nil && groupInfo.Name != "" {
 					name = groupInfo.Name
 				} else {
@@ -360,7 +365,7 @@ func (sm *SessionManager) loadContacts() {
 	
 	// Get all contacts from the store - GetAllContacts returns contacts and an error
 	contactCount := 0
-	contacts, err := sm.client.Store.Contacts.GetAllContacts()
+	contacts, err := sm.client.Store.Contacts.GetAllContacts(context.Background())
 	if err != nil {
 		sm.uiHandler.PrintError(fmt.Errorf("failed to load contacts: %v", err))
 		return
@@ -441,7 +446,7 @@ func (sm *SessionManager) getChatName(jid types.JID) string {
 	// For groups, use the group name if available
 	if jid.Server == "g.us" {
 		// Try to get group info from the store
-		groupInfo, err := sm.client.GetGroupInfo(jid)
+		groupInfo, err := sm.client.GetGroupInfo(context.Background(), jid)
 		if err == nil && groupInfo.Name != "" {
 			return groupInfo.Name
 		}
@@ -450,7 +455,7 @@ func (sm *SessionManager) getChatName(jid types.JID) string {
 	
 	// For individual chats, try to get the contact name
 	if sm.client != nil && sm.client.Store != nil {
-		contact, err := sm.client.Store.Contacts.GetContact(jid)
+		contact, err := sm.client.Store.Contacts.GetContact(context.Background(), jid)
 		if err == nil && contact.Found {
 			if contact.FullName != "" {
 				return contact.FullName
@@ -488,7 +493,7 @@ func (sm *SessionManager) logout() error {
 	
 	// Delete device from store
 	if sm.client.Store != nil {
-		err := sm.client.Store.Delete()
+		err := sm.client.Store.Delete(context.Background())
 		if err != nil {
 			sm.uiHandler.PrintText("Warning: Couldn't properly remove session: " + err.Error())
 		}
@@ -539,7 +544,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				
 				// Try to send a simpler read receipt which sometimes triggers history sync
 				receiptType := types.ReceiptTypeRead
-				err := sm.client.MarkRead([]types.MessageID{}, time.Now(), jid, jid, receiptType)
+				err := sm.client.MarkRead(context.Background(), []types.MessageID{}, time.Now(), jid, jid, receiptType)
 				if err != nil {
 					sm.uiHandler.PrintText(fmt.Sprintf("Note: Could not send read receipt: %v", err))
 				}
@@ -560,7 +565,7 @@ func (sm *SessionManager) execCommand(command Command) {
 				sm.uiHandler.PrintText("Trying alternative method...")
 				
 				// Send chat presence - using ChatPresence constants from the types package
-				err = sm.client.SendChatPresence(jid, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+				err = sm.client.SendChatPresence(context.Background(), jid, types.ChatPresenceComposing, types.ChatPresenceMediaText)
 				if err != nil {
 					sm.uiHandler.PrintText(fmt.Sprintf("Note: Could not send chat presence: %v", err))
 				}
@@ -633,7 +638,7 @@ func (sm *SessionManager) execCommand(command Command) {
 			}
 			
 			if sm.client.Store != nil {
-				err := sm.client.Store.Delete()
+				err := sm.client.Store.Delete(context.Background())
 				if err != nil {
 					sm.uiHandler.PrintText("Warning: Couldn't remove session: " + err.Error())
 				}
@@ -871,7 +876,7 @@ func (eh *eventHandler) handleMessage(evt *events.Message) {
 // Helper to get contact name
 func (eh *eventHandler) getContactName(jid types.JID) string {
 	if eh.sm.client != nil && eh.sm.client.Store != nil {
-		contact, err := eh.sm.client.Store.Contacts.GetContact(jid)
+		contact, err := eh.sm.client.Store.Contacts.GetContact(context.Background(), jid)
 		if err == nil && contact.Found && contact.FullName != "" {
 			return contact.FullName
 		}
@@ -884,7 +889,7 @@ func (eh *eventHandler) getContactName(jid types.JID) string {
 // Helper to get short contact name
 func (eh *eventHandler) getContactShort(jid types.JID) string {
 	if eh.sm.client != nil && eh.sm.client.Store != nil {
-		contact, err := eh.sm.client.Store.Contacts.GetContact(jid)
+		contact, err := eh.sm.client.Store.Contacts.GetContact(context.Background(), jid)
 		if err == nil && contact.Found && contact.PushName != "" {
 			return contact.PushName
 		}
