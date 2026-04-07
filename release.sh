@@ -26,19 +26,20 @@ extract_version() {
 
 wait_for_run() {
   local version="$1"
+  local event_name="$2"
   local timeout_seconds=900
   local started_at
   started_at="$(date +%s)"
 
-  echo "Waiting for workflow \"$WORKFLOW_NAME\" on tag $version to start..."
+  echo "Waiting for workflow \"$WORKFLOW_NAME\" ($event_name) for tag $version to start..."
   while true; do
     local run_id
     run_id="$(
       gh run list \
         --workflow "$WORKFLOW_NAME" \
         --limit 20 \
-        --json databaseId,headBranch,event \
-        --jq ".[] | select(.event == \"push\" and .headBranch == \"$version\") | .databaseId" \
+        --json databaseId,headBranch,event,displayTitle \
+        --jq ".[] | select(.event == \"$event_name\" and .headBranch == \"$version\") | .databaseId" \
         | head -n1
     )"
 
@@ -55,6 +56,11 @@ wait_for_run() {
 
     sleep 5
   done
+}
+
+trigger_workflow_dispatch() {
+  local version="$1"
+  gh workflow run "$WORKFLOW_NAME" --ref "$version" -f "tag=$version"
 }
 
 main() {
@@ -98,26 +104,28 @@ main() {
 
   git fetch --tags origin
 
-  if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
-    echo "Tag $version already exists locally" >&2
-    exit 1
-  fi
-
-  if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
-    echo "Tag $version already exists on origin" >&2
-    exit 1
-  fi
-
   gh auth status >/dev/null
 
-  git tag -a "$version" -m "Release $version"
-  git push origin "refs/tags/$version"
+  local trigger_event="push"
+  if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+    echo "Tag $version already exists on origin"
+    echo "Triggering workflow_dispatch for the existing tag"
+    trigger_workflow_dispatch "$version"
+    trigger_event="workflow_dispatch"
+  else
+    if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+      echo "Tag $version already exists locally, pushing it to origin"
+    else
+      git tag -a "$version" -m "Release $version"
+    fi
 
-  echo "Pushed tag $version"
-  echo "GitHub Actions will build artifacts, create the GitHub release, and update the Homebrew tap."
+    git push origin "refs/tags/$version"
+    echo "Pushed tag $version"
+    echo "GitHub Actions will build artifacts, create the GitHub release, and update the Homebrew tap."
+  fi
 
   if [ "$watch_release" -eq 1 ]; then
-    wait_for_run "$version"
+    wait_for_run "$version" "$trigger_event"
   else
     echo "Skipping workflow watch (--no-watch)"
   fi

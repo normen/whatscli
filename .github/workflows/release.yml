@@ -15,6 +15,7 @@ permissions:
 
 env:
   RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+  RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
 
 jobs:
   build-native:
@@ -43,6 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
       - uses: actions/setup-go@v5
@@ -73,6 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
       - uses: actions/setup-go@v5
@@ -112,6 +115,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
       - name: Resolve version
