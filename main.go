@@ -219,10 +219,21 @@ func handleCopyUser(ev *tcell.EventKey) *tcell.EventKey {
 }
 
 func handlePasteUser(ev *tcell.EventKey) *tcell.EventKey {
-	if clip, err := clipboard.ReadAll("clipboard"); err == nil {
+	if clip, err := safeReadClipboard(); err == nil {
 		textInput.SetText(textInput.GetText() + " " + clip)
+	} else {
+		PrintError(err)
 	}
 	return nil
+}
+
+func safeReadClipboard() (clip string, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = fmt.Errorf("clipboard paste is unavailable: %v", rec)
+		}
+	}()
+	return clipboard.ReadAll("clipboard")
 }
 
 func handleQuit(ev *tcell.EventKey) *tcell.EventKey {

@@ -474,10 +474,7 @@ func (sm *SessionManager) loadBacklog() {
 	}
 
 	if len(sm.db.GetMessages(sm.currentReceiver)) == len(existingMessages) {
-		err = sm.client.MarkRead(context.Background(), []types.MessageID{}, time.Now(), jid, jid, types.ReceiptTypeRead)
-		if err != nil {
-			sm.uiHandler.PrintText(fmt.Sprintf("Note: Could not send read receipt: %v", err))
-		}
+		sm.uiHandler.PrintText("No older local anchor found for a read-receipt fallback; waiting for WhatsApp sync.")
 		time.Sleep(2 * time.Second)
 	}
 
