@@ -451,31 +451,42 @@ func (sm *SessionManager) loadBacklog() {
 	existingMessages := sm.db.GetMessages(sm.currentReceiver)
 	sm.uiHandler.PrintText("Retrieving message history...")
 
-	if oldest, ok := sm.db.GetOldestMessage(sm.currentReceiver); ok {
-		senderJID := types.EmptyJID
-		if oldest.SenderId != "" {
-			if parsedSender, parseErr := types.ParseJID(oldest.SenderId); parseErr == nil {
-				senderJID = parsedSender
-			}
+	oldest, ok := sm.db.GetOldestMessage(sm.currentReceiver)
+	if !ok {
+		sm.uiHandler.PrintText("No local message anchor found yet. Open the chat after WhatsApp sync delivers some history, then try /backlog again.")
+		sm.uiHandler.NewScreen(existingMessages)
+		return
+	}
+
+	senderJID := types.EmptyJID
+	if oldest.SenderId != "" {
+		if parsedSender, parseErr := types.ParseJID(oldest.SenderId); parseErr == nil {
+			senderJID = parsedSender
 		}
-		req := sm.client.BuildHistorySyncRequest(&types.MessageInfo{
-			MessageSource: types.MessageSource{
-				Chat:     jid,
-				Sender:   senderJID,
-				IsFromMe: oldest.FromMe,
-				IsGroup:  strings.Contains(sm.currentReceiver, GROUPSUFFIX),
-			},
-			ID:        types.MessageID(oldest.Id),
-			Timestamp: time.Unix(int64(oldest.Timestamp), 0),
-		}, config.Config.General.BacklogMsgQuantity)
-		if _, err = sm.client.SendMessage(context.Background(), jid, req); err == nil {
-			time.Sleep(2 * time.Second)
-		}
+	}
+	req := sm.client.BuildHistorySyncRequest(&types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     jid,
+			Sender:   senderJID,
+			IsFromMe: oldest.FromMe,
+			IsGroup:  strings.Contains(sm.currentReceiver, GROUPSUFFIX),
+		},
+		ID:        types.MessageID(oldest.Id),
+		Timestamp: time.Unix(int64(oldest.Timestamp), 0),
+	}, config.Config.General.BacklogMsgQuantity)
+	if _, err = sm.client.SendPeerMessage(context.Background(), req); err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("failed to request message history: %v", err))
+		sm.uiHandler.NewScreen(existingMessages)
+		return
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for len(sm.db.GetMessages(sm.currentReceiver)) == len(existingMessages) && time.Now().Before(deadline) {
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	if len(sm.db.GetMessages(sm.currentReceiver)) == len(existingMessages) {
-		sm.uiHandler.PrintText("No older local anchor found for a read-receipt fallback; waiting for WhatsApp sync.")
-		time.Sleep(2 * time.Second)
+		sm.uiHandler.PrintText("Requested older messages from WhatsApp. Waiting for sync response.")
 	}
 
 	updated := sm.db.GetMessages(sm.currentReceiver)
