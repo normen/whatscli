@@ -1,49 +1,126 @@
-#!/bin/bash
-set -e
-# get verison from main.go VERSION string
-if [ $# -eq 0 ]; then
-	VERSION=$(cat main.go|grep "VERSION string"| awk -v FS="(\")" '{print $2}')
-else
-  VERSION=$1
-fi
-echo Releasing $VERSION
-WINF=whatscli-$VERSION-windows.zip
-LINUXF=whatscli-$VERSION-linux.zip
-MACF=whatscli-$VERSION-macos.zip
-RASPIF=whatscli-$VERSION-raspberrypi.zip
+#!/usr/bin/env bash
+set -euo pipefail
 
-# build zip files with binaries
-GOOS=darwin go build -o whatscli
-zip $MACF whatscli
-rm whatscli
-GOOS=windows go build -o whatscli.exe
-zip $WINF whatscli.exe
-rm whatscli.exe
-GOOS=linux go build -o whatscli
-zip $LINUXF whatscli
-rm whatscli
-GOOS=linux GOARCH=arm GOARM=5 go build -o whatscli
-zip $RASPIF whatscli
-rm whatscli
+WORKFLOW_NAME="Release"
 
-# publish to github
-git pull
-LASTTAG=$(git describe --tags --abbrev=0)
-git log $LASTTAG..HEAD --no-decorate --pretty=format:"- %s" --abbrev-commit > changes.txt
-vim changes.txt
-gh release create $VERSION $LINUXF $MACF $WINF $RASPIF -F changes.txt -t $VERSION
-rm changes.txt
-rm *.zip
+usage() {
+  cat <<'EOF'
+Usage: ./release.sh [version] [--no-watch]
 
-# update homebrew tap
-URL="https://github.com/normen/whatscli/archive/$VERSION.tar.gz"
-wget $URL
-SHASUM=$(shasum -a 256 $VERSION.tar.gz|awk '{print$1}')
-rm $VERSION.tar.gz
-cd ../../BrewCode/homebrew-tap
-sed -i bak "s/sha256 \".*/sha256 \"$SHASUM\"/" Formula/whatscli.rb
-sed -i bak "s!url \".*!url \"$URL\"!" Formula/whatscli.rb
-rm Formula/whatscli.rbbak
-git add -A
-git commit -m "update whatscli to $VERSION"
-git push
+If version is omitted, the script reads VERSION from main.go.
+It then creates the git tag, pushes it, and waits for the GitHub Actions
+"Release" workflow that publishes assets and updates the Homebrew tap.
+EOF
+}
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+extract_version() {
+  sed -n 's/^var VERSION string = "\(v[^"]*\)"$/\1/p' main.go | head -n1
+}
+
+wait_for_run() {
+  local version="$1"
+  local timeout_seconds=900
+  local started_at
+  started_at="$(date +%s)"
+
+  echo "Waiting for workflow \"$WORKFLOW_NAME\" on tag $version to start..."
+  while true; do
+    local run_id
+    run_id="$(
+      gh run list \
+        --workflow "$WORKFLOW_NAME" \
+        --limit 20 \
+        --json databaseId,headBranch,event \
+        --jq ".[] | select(.event == \"push\" and .headBranch == \"$version\") | .databaseId" \
+        | head -n1
+    )"
+
+    if [ -n "${run_id:-}" ]; then
+      echo "Watching workflow run $run_id"
+      gh run watch "$run_id" --exit-status
+      return
+    fi
+
+    if [ $(( $(date +%s) - started_at )) -ge "$timeout_seconds" ]; then
+      echo "Timed out waiting for workflow \"$WORKFLOW_NAME\" for tag $version" >&2
+      exit 1
+    fi
+
+    sleep 5
+  done
+}
+
+main() {
+  require_cmd git
+  require_cmd gh
+
+  local version=""
+  local watch_release=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --no-watch)
+        watch_release=0
+        ;;
+      *)
+        if [ -n "$version" ]; then
+          echo "Unexpected extra argument: $1" >&2
+          usage
+          exit 1
+        fi
+        version="$1"
+        ;;
+    esac
+    shift
+  done
+
+  if [ -z "$version" ]; then
+    version="$(extract_version)"
+  fi
+
+  if [ -z "$version" ]; then
+    echo "Could not determine release version from main.go" >&2
+    exit 1
+  fi
+
+  echo "Preparing release $version"
+
+  git fetch --tags origin
+
+  if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+    echo "Tag $version already exists locally" >&2
+    exit 1
+  fi
+
+  if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+    echo "Tag $version already exists on origin" >&2
+    exit 1
+  fi
+
+  gh auth status >/dev/null
+
+  git tag -a "$version" -m "Release $version"
+  git push origin "refs/tags/$version"
+
+  echo "Pushed tag $version"
+  echo "GitHub Actions will build artifacts, create the GitHub release, and update the Homebrew tap."
+
+  if [ "$watch_release" -eq 1 ]; then
+    wait_for_run "$version"
+  else
+    echo "Skipping workflow watch (--no-watch)"
+  fi
+}
+
+main "$@"

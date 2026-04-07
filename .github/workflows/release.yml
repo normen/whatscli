@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v1.0.12"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build-native:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            runs_on: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            binary: whatscli
+            asset_name: whatscli-${{ env.RELEASE_VERSION }}-linux.zip
+          - name: windows
+            runs_on: windows-latest
+            goos: windows
+            goarch: amd64
+            binary: whatscli.exe
+            asset_name: whatscli-${{ env.RELEASE_VERSION }}-windows.zip
+          - name: macos
+            runs_on: macos-13
+            goos: darwin
+            goarch: amd64
+            binary: whatscli
+            asset_name: whatscli-${{ env.RELEASE_VERSION }}-macos.zip
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binary
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          BINARY: ${{ matrix.binary }}
+        run: |
+          mkdir -p dist
+          go build -o "dist/$BINARY" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-asset
+          path: dist/${{ matrix.binary }}
+
+  build-raspberrypi:
+    name: Build raspberrypi
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install cross toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabi
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: "1"
+          CC: arm-linux-gnueabi-gcc
+          GOOS: linux
+          GOARCH: arm
+          GOARM: "5"
+        run: |
+          mkdir -p dist
+          go build -o dist/whatscli .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raspberrypi-asset
+          path: dist/whatscli
+
+  release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - build-native
+      - build-raspberrypi
+
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: meta
+        run: |
+          echo "version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Package assets
+        run: |
+          mkdir -p release-assets
+          cp dist/linux-asset/whatscli release-assets/
+          chmod +x release-assets/whatscli
+          (
+            cd release-assets
+            zip "whatscli-${RELEASE_VERSION}-linux.zip" whatscli
+            rm whatscli
+          )
+
+          cp dist/windows-asset/whatscli.exe release-assets/
+          (
+            cd release-assets
+            zip "whatscli-${RELEASE_VERSION}-windows.zip" whatscli.exe
+            rm whatscli.exe
+          )
+
+          cp dist/macos-asset/whatscli release-assets/whatscli
+          chmod +x release-assets/whatscli
+          (
+            cd release-assets
+            zip "whatscli-${RELEASE_VERSION}-macos.zip" whatscli
+            rm whatscli
+          )
+
+          cp dist/raspberrypi-asset/whatscli release-assets/whatscli
+          chmod +x release-assets/whatscli
+          (
+            cd release-assets
+            zip "whatscli-${RELEASE_VERSION}-raspberrypi.zip" whatscli
+            rm whatscli
+          )
+
+          ls -lah release-assets
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          version="${{ steps.meta.outputs.version }}"
+          current_tag="$version"
+          previous_tag="$(git tag --sort=-v:refname | grep -vx "$current_tag" | head -n1)"
+          if [ -n "$previous_tag" ]; then
+            git log "$previous_tag..HEAD" --no-decorate --pretty=format:'- %s' --abbrev-commit > changes.txt
+          else
+            git log --no-decorate --pretty=format:'- %s' --abbrev-commit > changes.txt
+          fi
+          if [ ! -s changes.txt ]; then
+            echo "- Release $version" > changes.txt
+          fi
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.version }}
+          name: ${{ steps.meta.outputs.version }}
+          body_path: changes.txt
+          files: release-assets/*.zip
+          draft: false
+          prerelease: false
+
+  update-homebrew-tap:
+    name: Update homebrew tap
+    runs-on: ubuntu-latest
+    needs: release
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: normen/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        shell: bash
+        run: |
+          version="${{ needs.release.outputs.version }}"
+          url="https://github.com/normen/whatscli/archive/${version}.tar.gz"
+          curl -fsSL "$url" -o "${version}.tar.gz"
+          shasum="$(sha256sum "${version}.tar.gz" | awk '{print $1}')"
+          rm "${version}.tar.gz"
+
+          cd homebrew-tap
+          sed -i.bak "s/sha256 \".*/sha256 \"$shasum\"/" Formula/whatscli.rb
+          sed -i.bak "s!url \".*!url \"$url\"!" Formula/whatscli.rb
+          rm -f Formula/whatscli.rb.bak
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/whatscli.rb
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "update whatscli to ${{ needs.release.outputs.version }}"
+          git push
