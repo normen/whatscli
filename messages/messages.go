@@ -1,7 +1,11 @@
 //this package manages the messages
 package messages
 
-import "io"
+import (
+	"io"
+
+	waProto "go.mau.fi/whatsmeow/binary/proto"
+)
 
 // TODO: move these funcs/interface to channels
 type UiMessageHandler interface {
@@ -44,10 +48,22 @@ type Command struct {
 	Params []string
 }
 
+type MessageKind string
+
+const (
+	MessageKindText     MessageKind = "text"
+	MessageKindImage    MessageKind = "image"
+	MessageKindVideo    MessageKind = "video"
+	MessageKindAudio    MessageKind = "audio"
+	MessageKindDocument MessageKind = "document"
+	MessageKindUnknown  MessageKind = "unknown"
+)
+
 // internal message representation to abstract from message lib
 type Message struct {
 	Id           string
 	ChatId       string // the source of the message (group id or contact id)
+	SenderId     string
 	ContactId    string
 	ContactName  string
 	ContactShort string
@@ -55,6 +71,11 @@ type Message struct {
 	FromMe       bool
 	Forwarded    bool
 	Text         string
+	Kind         MessageKind
+	MimeType     string
+	FileName     string
+	Unread       bool
+	RawMessage   *waProto.Message
 }
 
 // internal contact representation to abstract from message lib

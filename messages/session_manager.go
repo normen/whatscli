@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
+	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,11 +27,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// SessionManager deals with the connection and receives commands from the UI
-// it updates the UI accordingly
+var urlPattern = regexp.MustCompile(`https?://[^\s]+`)
+
+// SessionManager deals with the connection and receives commands from the UI.
 type SessionManager struct {
 	db              *MessageDatabase
-	currentReceiver string // currently selected chat for message handling
+	currentReceiver string
 	uiHandler       UiMessageHandler
 	client          *whatsmeow.Client
 	container       *sqlstore.Container
@@ -43,7 +48,7 @@ type SessionManager struct {
 	eventHandler    *eventHandler
 }
 
-// initialize the SessionManager
+// Init initializes the SessionManager.
 func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.db = &MessageDatabase{}
 	sm.db.Init()
@@ -57,7 +62,7 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.eventHandler = &eventHandler{sm: sm}
 }
 
-// starts the receiver and message handling go routine
+// StartManager starts the receiver and message handling goroutine.
 func (sm *SessionManager) StartManager() error {
 	if sm.started {
 		return errors.New("session manager running, send commands to control")
@@ -73,18 +78,15 @@ func (sm *SessionManager) runManager() error {
 		sm.uiHandler.PrintError(fmt.Errorf("failed to create WhatsApp connection: %v", err))
 		return err
 	}
-	
 	if client == nil {
-		sm.uiHandler.PrintError(errors.New("could not establish WhatsApp connection"))
 		return errors.New("could not establish WhatsApp connection")
 	}
-	
-	err = sm.loginWithConnection(client)
-	if err != nil {
+
+	if err = sm.loginWithConnection(client); err != nil {
 		sm.uiHandler.PrintError(err)
 	}
-	
-	for sm.started == true {
+
+	for sm.started {
 		select {
 		case command := <-sm.CommandChannel:
 			sm.execCommand(command)
@@ -95,17 +97,14 @@ func (sm *SessionManager) runManager() error {
 			sm.uiHandler.SetStatus(sm.statusInfo)
 		case statusMsg := <-sm.StatusChannel:
 			prevStatus := sm.statusInfo.Connected
-			if statusMsg.err != nil {
-			} else {
+			if statusMsg.err == nil {
 				sm.statusInfo.Connected = statusMsg.connected
 			}
-			
 			if sm.client != nil {
 				sm.statusInfo.Connected = sm.client.IsConnected()
 			} else {
 				sm.statusInfo.Connected = false
 			}
-			
 			sm.uiHandler.SetStatus(sm.statusInfo)
 			if prevStatus != sm.statusInfo.Connected {
 				if sm.statusInfo.Connected {
@@ -116,7 +115,7 @@ func (sm *SessionManager) runManager() error {
 			}
 		}
 	}
-	
+
 	fmt.Fprintln(sm.uiHandler.GetWriter(), "closing the receiver")
 	if sm.client != nil {
 		sm.client.Disconnect()
@@ -124,254 +123,165 @@ func (sm *SessionManager) runManager() error {
 	return nil
 }
 
-// set the currently selected chat
 func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
-	screen := sm.getMessages(id)
-	sm.uiHandler.NewScreen(screen)
+	sm.uiHandler.NewScreen(sm.getMessages(id))
 }
 
-// gets an existing connection or creates one
 func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
 	if sm.client == nil {
-		// Create database store for WhatsApp
 		dbPath := config.GetSessionFilePath() + ".db"
 		container, err := sqlstore.New(context.Background(), "sqlite3", "file:"+dbPath+"?_foreign_keys=on", waLog.Noop)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to database: %v", err)
 		}
-		
-		// Get device store
 		deviceStore, err := container.GetFirstDevice(context.Background())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get device: %v", err)
 		}
-		
-		// Create client
 		client := whatsmeow.NewClient(deviceStore, waLog.Noop)
-		
-		// Set event handler
 		client.AddEventHandler(sm.eventHandler.Handle)
-		
 		sm.client = client
 		sm.container = container
 	}
-	
 	return sm.client, nil
 }
 
-// login logs in the user. It tries to see if a session already exists. If not, tries to create a
-// new one using qr scanned on the terminal.
 func (sm *SessionManager) login() error {
-	// Clear any existing connection for retry
 	sm.client = nil
-	
 	client, err := sm.getConnection()
 	if err != nil {
 		return fmt.Errorf("failed to create WhatsApp connection: %v", err)
 	}
-	
-	if client == nil {
-		return errors.New("could not establish WhatsApp connection")
-	}
-	
-	// Try to log in
 	return sm.loginWithConnection(client)
 }
 
-// loginWithConnection logs in the user using a provided connection. It tries to see if a session already exists. If not, tries to create a
-// new one using qr scanned on the terminal.
 func (sm *SessionManager) loginWithConnection(client *whatsmeow.Client) error {
 	sm.uiHandler.PrintText("connecting..")
-	
-	// Ensure connection is clean before starting
 	if client.IsConnected() {
 		client.Disconnect()
 		sm.StatusChannel <- StatusMsg{false, nil}
-		// Small pause to ensure disconnection completes
 		time.Sleep(500 * time.Millisecond)
 	}
-	
-	// Check if we need to pair
+
 	if client.Store.ID == nil {
-		// Need to pair with QR code
 		return sm.loginWithQRCode(client)
 	}
-	
-	// We have credentials, try connecting
-	err := client.Connect()
-	if err != nil {
-		// If we get authentication errors, we may need to re-pair
-		if errors.Is(err, whatsmeow.ErrNotConnected) || 
-		   errors.Is(err, whatsmeow.ErrNotLoggedIn) {
+
+	if err := client.Connect(); err != nil {
+		if errors.Is(err, whatsmeow.ErrNotConnected) || errors.Is(err, whatsmeow.ErrNotLoggedIn) {
 			sm.uiHandler.PrintText("Session expired, need to scan QR code again")
-			
-			// Clear the device from the store
-			err := client.Store.Delete(context.Background())
-			if err != nil {
-				return fmt.Errorf("failed to clear expired session: %v", err)
+			if delErr := client.Store.Delete(context.Background()); delErr != nil {
+				return fmt.Errorf("failed to clear expired session: %v", delErr)
 			}
-			
-			// Recreate the client
 			sm.client = nil
 			client, err = sm.getConnection()
 			if err != nil {
 				return fmt.Errorf("failed to create new connection: %v", err)
 			}
-			
-			// Try pairing
 			return sm.loginWithQRCode(client)
 		}
-		
 		return fmt.Errorf("connection failed: %v", err)
 	}
-	
+
 	sm.uiHandler.PrintText("Session restored successfully")
 	sm.StatusChannel <- StatusMsg{true, nil}
-	
-	// Load existing chats after successful connection
 	go sm.loadRecentChats()
-	
 	return nil
 }
 
-// Helper method to login with QR code
 func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 	sm.uiHandler.PrintText("Please scan the QR code with your phone")
-	
-	// Request QR code
-	qrChan, _ := client.GetQRChannel(context.Background())
-	err := client.Connect()
+	qrChan, err := client.GetQRChannel(context.Background())
 	if err != nil {
+		return fmt.Errorf("failed to initialize QR channel: %v", err)
+	}
+	if err = client.Connect(); err != nil {
 		return fmt.Errorf("error connecting to WhatsApp: %v", err)
 	}
-	
+
 	for evt := range qrChan {
-		if evt.Event == "code" {
-			// Convert to ASCII QR code and print
+		switch evt.Event {
+		case "code":
 			terminal := qrcode.New()
 			terminal.SetOutput(tview.ANSIWriter(sm.uiHandler.GetWriter()))
 			terminal.Get(evt.Code).Print()
-			
-		} else if evt.Event == "success" {
+		case "success":
 			sm.uiHandler.PrintText("Successfully logged in!")
 			sm.StatusChannel <- StatusMsg{true, nil}
-			
-			// Load existing chats after successful login
 			go sm.loadRecentChats()
-			
 			return nil
-		} else {
+		default:
 			sm.uiHandler.PrintText("QR event: " + evt.Event)
 		}
 	}
-	
 	return errors.New("QR code channel closed without success")
 }
 
-// loadRecentChats fetches recent chats from WhatsApp and adds them to the database
 func (sm *SessionManager) loadRecentChats() {
 	if sm.client == nil || !sm.client.IsConnected() {
 		sm.uiHandler.PrintError(errors.New("not connected to WhatsApp"))
 		return
 	}
-	
-	sm.uiHandler.PrintText("Loading recent chats...")
-	
-	// Load contacts first to ensure proper name display
+
 	sm.loadContacts()
-	
-	// Try to get all chats through the whatsmeow API
+	addedChats := 0
+
 	if sm.client.Store != nil && sm.client.Store.Contacts != nil {
 		contacts, err := sm.client.Store.Contacts.GetAllContacts(context.Background())
-		if err != nil {
-			sm.uiHandler.PrintError(fmt.Errorf("failed to load contacts for chat list: %v", err))
-			return
-		}
-		
-		// Process each contact as a potential chat
-		chatCount := 0
-		for jid, contact := range contacts {
-			if !contact.Found {
-				continue
-			}
-			
-			// Skip non-chat JIDs
-			if jid.Server != "s.whatsapp.net" && jid.Server != "g.us" {
-				continue
-			}
-			
-			jidStr := jid.String()
-			
-			// Create a Chat object
-			isGroup := jid.Server == "g.us"
-			
-			// Pick the best name available
-			var name string
-			if isGroup {
-				// For groups, try to get the group info
-				groupInfo, err := sm.client.GetGroupInfo(context.Background(), jid)
-				if err == nil && groupInfo.Name != "" {
-					name = groupInfo.Name
-				} else {
-					name = "Group: " + jid.User
+		if err == nil {
+			for jid, contact := range contacts {
+				if jid.Server != types.DefaultUserServer {
+					continue
 				}
-			} else {
-				// For contacts, use the full name first, then pushname, then JID
-				name = contact.FullName
+				name := contact.FullName
 				if name == "" {
 					name = contact.PushName
 				}
 				if name == "" {
 					name = jid.User
 				}
+				sm.db.AddChat(Chat{
+					Id:      jid.String(),
+					IsGroup: false,
+					Name:    name,
+				})
+				addedChats++
 			}
-			
-			chatObj := Chat{
-				Id:          jidStr,
-				IsGroup:     isGroup,
-				Name:        name,
-				Unread:      0, // We don't have unread info here
-				LastMessage: time.Now().Unix(),
-			}
-			
-			// Add to database
-			sm.db.AddChat(chatObj)
-			chatCount++
-			
-			// Load recent messages for this chat in the background
-			go sm.loadRecentMessages(jidStr)
 		}
-		
-		// Update UI with the new chat list
-		sm.uiHandler.SetChats(sm.db.GetChatIds())
-		
-		sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d contacts as chats", chatCount))
-	} else {
-		sm.uiHandler.PrintError(errors.New("failed to access contacts store"))
+	}
+
+	groups, err := sm.client.GetJoinedGroups(context.Background())
+	if err == nil {
+		for _, group := range groups {
+			sm.db.AddChat(Chat{
+				Id:      group.JID.String(),
+				IsGroup: true,
+				Name:    group.Name,
+			})
+			addedChats++
+		}
+	}
+
+	sm.uiHandler.SetChats(sm.db.GetChatIds())
+	if addedChats > 0 {
+		sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d chats", addedChats))
 	}
 }
 
-// loadContacts loads contacts from the WhatsApp address book
 func (sm *SessionManager) loadContacts() {
-	if sm.client == nil || sm.client.Store == nil {
+	if sm.client == nil || sm.client.Store == nil || sm.client.Store.Contacts == nil {
 		return
 	}
-	
-	// Get all contacts from the store - GetAllContacts returns contacts and an error
-	contactCount := 0
+
 	contacts, err := sm.client.Store.Contacts.GetAllContacts(context.Background())
 	if err != nil {
 		sm.uiHandler.PrintError(fmt.Errorf("failed to load contacts: %v", err))
 		return
 	}
-	
+
+	contactCount := 0
 	for jid, contact := range contacts {
-		if !contact.Found {
-			continue
-		}
-		
-		// Determine best name to use
 		name := contact.FullName
 		if name == "" {
 			name = contact.PushName
@@ -379,77 +289,26 @@ func (sm *SessionManager) loadContacts() {
 		if name == "" {
 			name = jid.User
 		}
-		
-		// Create Contact object
-		contactObj := Contact{
+		sm.db.AddContact(Contact{
 			Id:    jid.String(),
 			Name:  name,
 			Short: contact.PushName,
-		}
-		
-		// Add to database
-		sm.db.AddContact(contactObj)
+		})
 		contactCount++
 	}
-	
 	if contactCount > 0 {
 		sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d contacts", contactCount))
 	}
 }
 
-// loadRecentMessages loads the most recent messages for a chat
-func (sm *SessionManager) loadRecentMessages(chatJID string) {
-	if sm.client == nil || !sm.client.IsConnected() {
-		return
-	}
-	
-	// For now, message history retrieval is limited in whatsmeow
-	// Messages will be populated as they're sent and received
-	sm.uiHandler.PrintText(fmt.Sprintf("Message history for %s will be populated as you communicate", chatJID))
-	
-	// If this is the currently selected chat, update the UI
-	if chatJID == sm.currentReceiver {
-		screen := sm.getMessages(chatJID)
-		sm.uiHandler.NewScreen(screen)
-	}
-}
-
-// Helper functions to handle nil pointers safely
-func stringOrEmpty(ptr *string) string {
-	if ptr == nil {
-		return ""
-	}
-	return *ptr
-}
-
-func boolOrFalse(ptr *bool) bool {
-	if ptr == nil {
-		return false
-	}
-	return *ptr
-}
-
-func uint64OrZero(ptr *uint64) uint64 {
-	if ptr == nil {
-		return 0
-	}
-	return *ptr
-}
-
-// getChatName returns the best display name for a chat
 func (sm *SessionManager) getChatName(jid types.JID) string {
-	// For groups, use the group name if available
-	if jid.Server == "g.us" {
-		// Try to get group info from the store
+	if jid.Server == types.GroupServer {
 		groupInfo, err := sm.client.GetGroupInfo(context.Background(), jid)
 		if err == nil && groupInfo.Name != "" {
 			return groupInfo.Name
 		}
-		return "Group Chat"
 	}
-	
-	// For individual chats, try to get the contact name
-	if sm.client != nil && sm.client.Store != nil {
+	if sm.client != nil && sm.client.Store != nil && sm.client.Store.Contacts != nil {
 		contact, err := sm.client.Store.Contacts.GetContact(context.Background(), jid)
 		if err == nil && contact.Found {
 			if contact.FullName != "" {
@@ -460,12 +319,9 @@ func (sm *SessionManager) getChatName(jid types.JID) string {
 			}
 		}
 	}
-	
-	// Fallback to JID
 	return sm.db.GetIdName(jid.String())
 }
 
-// disconnects the session
 func (sm *SessionManager) disconnect() error {
 	if sm.client != nil && sm.client.IsConnected() {
 		sm.client.Disconnect()
@@ -474,149 +330,31 @@ func (sm *SessionManager) disconnect() error {
 	return nil
 }
 
-// logout logs out the user, deletes session file
 func (sm *SessionManager) logout() error {
 	if sm.client == nil {
 		sm.StatusChannel <- StatusMsg{false, nil}
 		sm.uiHandler.PrintText("Already logged out")
 		return nil
 	}
-	
-	if sm.client.IsConnected() {
-		sm.client.Disconnect()
-	}
-	
-	// Delete device from store
-	if sm.client.Store != nil {
-		err := sm.client.Store.Delete(context.Background())
-		if err != nil {
-			sm.uiHandler.PrintText("Warning: Couldn't properly remove session: " + err.Error())
+
+	if sm.client.Store != nil && sm.client.Store.ID != nil {
+		if err := sm.client.Logout(context.Background()); err != nil && !errors.Is(err, whatsmeow.ErrNotConnected) {
+			sm.uiHandler.PrintText("Warning: Couldn't fully log out: " + err.Error())
 		}
 	}
-	
-	// Reset client
 	sm.client = nil
-	
-	sm.uiHandler.PrintText("Successfully logged out")
+	sm.container = nil
 	sm.StatusChannel <- StatusMsg{false, nil}
+	sm.uiHandler.PrintText("Successfully logged out")
 	return nil
 }
 
-// executes a command
 func (sm *SessionManager) execCommand(command Command) {
-	cmd := command.Name
-	switch cmd {
+	switch command.Name {
 	default:
-		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Unknown command: [-]" + cmd)
+		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Unknown command: [-]" + command.Name)
 	case "backlog":
-		if sm.currentReceiver != "" {
-			// First approach: Try to use the direct conversation query method
-			jid, err := types.ParseJID(sm.currentReceiver)
-			if err != nil {
-				sm.uiHandler.PrintError(fmt.Errorf("invalid JID: %v", err))
-				return
-			}
-			
-			sm.uiHandler.PrintText("Retrieving message history...")
-			
-			// Get existing messages to compare later
-			existingMessages := sm.db.GetMessages(sm.currentReceiver)
-			
-			// Find the ID of the oldest message we have - not used currently but could be in future
-			var oldestTimestamp uint64 = ^uint64(0) // Maximum uint64 value
-			for _, msg := range existingMessages {
-				if msg.Timestamp < oldestTimestamp {
-					oldestTimestamp = msg.Timestamp
-				}
-			}
-			
-			// Try multiple approaches:
-			var messagesFetched bool
-			
-			// 1. First try direct message fetch
-			if sm.client.IsConnected() {
-				sm.uiHandler.PrintText("Attempting to fetch older messages...")
-				
-				// Try to send a simpler read receipt which sometimes triggers history sync
-				receiptType := types.ReceiptTypeRead
-				err := sm.client.MarkRead(context.Background(), []types.MessageID{}, time.Now(), jid, jid, receiptType)
-				if err != nil {
-					sm.uiHandler.PrintText(fmt.Sprintf("Note: Could not send read receipt: %v", err))
-				}
-				
-				// Wait a bit
-				time.Sleep(2 * time.Second)
-				
-				// Check if we got any new messages
-				updatedMessages := sm.db.GetMessages(sm.currentReceiver)
-				if len(updatedMessages) > len(existingMessages) {
-					messagesFetched = true
-					sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d additional messages", len(updatedMessages)-len(existingMessages)))
-				}
-			}
-			
-			// 2. If that didn't work, try a presence update which can trigger history sync
-			if !messagesFetched && sm.client.IsConnected() {
-				sm.uiHandler.PrintText("Trying alternative method...")
-				
-				// Send chat presence - using ChatPresence constants from the types package
-				err = sm.client.SendChatPresence(context.Background(), jid, types.ChatPresenceComposing, types.ChatPresenceMediaText)
-				if err != nil {
-					sm.uiHandler.PrintText(fmt.Sprintf("Note: Could not send chat presence: %v", err))
-				}
-				
-				// Wait a bit longer for any messages to arrive
-				time.Sleep(3 * time.Second)
-				
-				// Check if we got any new messages
-				updatedMessages := sm.db.GetMessages(sm.currentReceiver)
-				if len(updatedMessages) > len(existingMessages) {
-					messagesFetched = true
-					sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d additional messages", len(updatedMessages)-len(existingMessages)))
-				}
-			}
-			
-			// 3. Last resort: try history sync notification
-			if !messagesFetched && sm.client.IsConnected() {
-				sm.uiHandler.PrintText("Trying final method...")
-				
-				// Create context with timeout
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				
-				// Create a basic history sync notification
-				historyMsg := &waProto.Message{
-					ProtocolMessage: &waProto.ProtocolMessage{
-						HistorySyncNotification: &waProto.HistorySyncNotification{
-							ChunkOrder:    proto.Uint32(0),
-							FileLength:    proto.Uint64(0),
-							FileEncSHA256: []byte{},
-						},
-						Type: waProto.ProtocolMessage_HISTORY_SYNC_NOTIFICATION.Enum(),
-					},
-				}
-				
-				// Send it and ignore errors (it may not work)
-				sm.client.SendMessage(ctx, jid, historyMsg)
-				
-				// Wait a bit longer for any messages to arrive
-				time.Sleep(3 * time.Second)
-				
-				// Final check if we got any new messages
-				finalMessages := sm.db.GetMessages(sm.currentReceiver)
-				if len(finalMessages) > len(existingMessages) {
-					sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d additional messages", len(finalMessages)-len(existingMessages)))
-				} else {
-					sm.uiHandler.PrintText("No additional messages found. WhatsApp may limit history access.")
-				}
-			}
-			
-			// Show the updated message list
-			screen := sm.getMessages(sm.currentReceiver)
-			sm.uiHandler.NewScreen(screen)
-		} else {
-			sm.printCommandUsage("backlog", "-> only works in a chat")
-		}
+		sm.loadBacklog()
 	case "login", "connect":
 		err := sm.login()
 		if err != nil {
@@ -626,42 +364,14 @@ func (sm *SessionManager) execCommand(command Command) {
 			sm.uiHandler.PrintText("Successfully connected to WhatsApp")
 		}
 	case "reset":
-		// Fully reset everything
-		if sm.client != nil {
-			if sm.client.IsConnected() {
-				sm.client.Disconnect()
-			}
-			
-			if sm.client.Store != nil {
-				err := sm.client.Store.Delete(context.Background())
-				if err != nil {
-					sm.uiHandler.PrintText("Warning: Couldn't remove session: " + err.Error())
-				}
-			}
-		}
-		
-		sm.client = nil
-		sm.container = nil
-		
-		// Remove the DB file
-		dbPath := config.GetSessionFilePath() + ".db"
-		err := os.Remove(dbPath)
-		if err != nil && !os.IsNotExist(err) {
-			sm.uiHandler.PrintText("Warning: Couldn't remove database file: " + err.Error())
-		}
-		
-		sm.uiHandler.PrintText("Session reset. Use /connect to reconnect with a new QR code.")
-		sm.StatusChannel <- StatusMsg{false, nil}
+		sm.resetSession()
 	case "disconnect":
 		sm.uiHandler.PrintError(sm.disconnect())
 	case "logout":
 		sm.uiHandler.PrintError(sm.logout())
 	case "send":
 		if checkParam(command.Params, 2) {
-			receiver := command.Params[0]
-			textParams := command.Params[1:]
-			text := strings.Join(textParams, " ")
-			sm.sendText(receiver, text)
+			sm.sendText(command.Params[0], strings.Join(command.Params[1:], " "))
 		} else {
 			sm.printCommandUsage("send", "[chat-id[] [message text[]")
 		}
@@ -672,100 +382,568 @@ func (sm *SessionManager) execCommand(command Command) {
 			sm.printCommandUsage("select", "[chat-id[]")
 		}
 	case "read":
-		if sm.currentReceiver != "" {
-			// TODO: Implement marking messages as read in whatsmeow
-			sm.uiHandler.PrintText("Read command not implemented yet with the new backend")
-		} else {
-			sm.printCommandUsage("read", "-> only works in a chat")
-		}
+		sm.markCurrentChatRead()
 	case "info":
 		if checkParam(command.Params, 1) {
 			sm.uiHandler.PrintText(sm.db.GetMessageInfo(command.Params[0]))
 		} else {
 			sm.printCommandUsage("info", "[message-id[]")
 		}
+	case "download":
+		sm.downloadCommand(command.Params, false, false)
+	case "open":
+		sm.downloadCommand(command.Params, true, false)
+	case "show":
+		sm.downloadCommand(command.Params, true, true)
+	case "url":
+		sm.openMessageURL(command.Params)
+	case "upload":
+		sm.sendMediaCommand(command.Params, MessageKindDocument)
+	case "sendimage":
+		sm.sendMediaCommand(command.Params, MessageKindImage)
+	case "sendvideo":
+		sm.sendMediaCommand(command.Params, MessageKindVideo)
+	case "sendaudio":
+		sm.sendMediaCommand(command.Params, MessageKindAudio)
+	case "revoke":
+		sm.revokeMessage(command.Params)
+	case "leave":
+		sm.leaveCurrentGroup()
+	case "create":
+		sm.createGroup(command.Params)
+	case "add":
+		sm.updateCurrentGroupParticipants(command.Params, whatsmeow.ParticipantChangeAdd, "add", "added new members")
+	case "remove":
+		sm.updateCurrentGroupParticipants(command.Params, whatsmeow.ParticipantChangeRemove, "remove", "removed members")
+	case "admin":
+		sm.updateCurrentGroupParticipants(command.Params, whatsmeow.ParticipantChangePromote, "admin", "promoted members")
+	case "removeadmin":
+		sm.updateCurrentGroupParticipants(command.Params, whatsmeow.ParticipantChangeDemote, "removeadmin", "demoted members")
+	case "subject":
+		sm.updateCurrentGroupSubject(command.Params)
 	case "colorlist":
 		out := ""
-		for idx, _ := range tcell.ColorNames {
-			out = out + "[" + idx + "]" + idx + "[-]\n"
+		for idx := range tcell.ColorNames {
+			out += "[" + idx + "]" + idx + "[-]\n"
 		}
 		sm.uiHandler.PrintText(out)
 	case "more":
-		sm.uiHandler.PrintText("More command not implemented yet with the new backend")
+		sm.loadBacklog()
 	}
 }
 
-// helper for built-in command help
-func (sm *SessionManager) printCommandUsage(command string, usage string) {
-	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] " + command + " " + usage)
-}
-
-// check if parameters for command are okay
-func checkParam(arr []string, length int) bool {
-	if arr == nil || len(arr) < length {
-		return false
+func (sm *SessionManager) loadBacklog() {
+	if sm.currentReceiver == "" {
+		sm.printCommandUsage("backlog", "-> only works in a chat")
+		return
 	}
-	return true
-}
-
-// get all messages for one chat id
-func (sm *SessionManager) getMessages(wid string) []Message {
-	msgs := sm.db.GetMessages(wid)
-	ids := []Message{}
-	for _, msg := range msgs {
-		ids = append(ids, msg)
-	}
-	return ids
-}
-
-// sends text to whatsapp id
-func (sm *SessionManager) sendText(wid string, text string) {
 	if sm.client == nil || !sm.client.IsConnected() {
 		sm.uiHandler.PrintError(errors.New("not connected to WhatsApp"))
 		return
 	}
-	
-	// Parse JID
+
+	jid, err := types.ParseJID(sm.currentReceiver)
+	if err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("invalid JID: %v", err))
+		return
+	}
+
+	existingMessages := sm.db.GetMessages(sm.currentReceiver)
+	sm.uiHandler.PrintText("Retrieving message history...")
+
+	if oldest, ok := sm.db.GetOldestMessage(sm.currentReceiver); ok {
+		senderJID := types.EmptyJID
+		if oldest.SenderId != "" {
+			if parsedSender, parseErr := types.ParseJID(oldest.SenderId); parseErr == nil {
+				senderJID = parsedSender
+			}
+		}
+		req := sm.client.BuildHistorySyncRequest(&types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     jid,
+				Sender:   senderJID,
+				IsFromMe: oldest.FromMe,
+				IsGroup:  strings.Contains(sm.currentReceiver, GROUPSUFFIX),
+			},
+			ID:        types.MessageID(oldest.Id),
+			Timestamp: time.Unix(int64(oldest.Timestamp), 0),
+		}, config.Config.General.BacklogMsgQuantity)
+		if _, err = sm.client.SendMessage(context.Background(), jid, req); err == nil {
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	if len(sm.db.GetMessages(sm.currentReceiver)) == len(existingMessages) {
+		err = sm.client.MarkRead(context.Background(), []types.MessageID{}, time.Now(), jid, jid, types.ReceiptTypeRead)
+		if err != nil {
+			sm.uiHandler.PrintText(fmt.Sprintf("Note: Could not send read receipt: %v", err))
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	updated := sm.db.GetMessages(sm.currentReceiver)
+	if len(updated) > len(existingMessages) {
+		sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d additional messages", len(updated)-len(existingMessages)))
+	} else {
+		sm.uiHandler.PrintText("No additional messages found. WhatsApp may limit history access.")
+	}
+	sm.uiHandler.NewScreen(updated)
+}
+
+func (sm *SessionManager) resetSession() {
+	if sm.client != nil {
+		if sm.client.IsConnected() {
+			sm.client.Disconnect()
+		}
+		if sm.client.Store != nil {
+			if err := sm.client.Store.Delete(context.Background()); err != nil {
+				sm.uiHandler.PrintText("Warning: Couldn't remove session: " + err.Error())
+			}
+		}
+	}
+
+	sm.client = nil
+	sm.container = nil
+	dbPath := config.GetSessionFilePath() + ".db"
+	if err := os.Remove(dbPath); err != nil && !os.IsNotExist(err) {
+		sm.uiHandler.PrintText("Warning: Couldn't remove database file: " + err.Error())
+	}
+	sm.StatusChannel <- StatusMsg{false, nil}
+	sm.uiHandler.PrintText("Session reset. Use /connect to reconnect with a new QR code.")
+}
+
+func (sm *SessionManager) markCurrentChatRead() {
+	if sm.currentReceiver == "" {
+		sm.printCommandUsage("read", "-> only works in a chat")
+		return
+	}
+	if sm.client == nil || !sm.client.IsConnected() {
+		sm.uiHandler.PrintError(errors.New("not connected to WhatsApp"))
+		return
+	}
+
+	chatJID, err := types.ParseJID(sm.currentReceiver)
+	if err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("invalid JID: %v", err))
+		return
+	}
+
+	unreadMessages := sm.db.MarkChatRead(sm.currentReceiver)
+	if len(unreadMessages) == 0 {
+		sm.uiHandler.SetChats(sm.db.GetChatIds())
+		sm.uiHandler.PrintText("No unread messages in current chat")
+		return
+	}
+
+	type senderBatch struct {
+		sender    types.JID
+		ids       []types.MessageID
+		timestamp time.Time
+	}
+	batches := make(map[string]*senderBatch)
+	for _, msg := range unreadMessages {
+		sender := chatJID
+		if strings.Contains(sm.currentReceiver, GROUPSUFFIX) && msg.SenderId != "" {
+			sender, err = types.ParseJID(msg.SenderId)
+			if err != nil {
+				continue
+			}
+		}
+		key := sender.String()
+		if _, ok := batches[key]; !ok {
+			batches[key] = &senderBatch{sender: sender}
+		}
+		batches[key].ids = append(batches[key].ids, types.MessageID(msg.Id))
+		ts := time.Unix(int64(msg.Timestamp), 0)
+		if ts.After(batches[key].timestamp) {
+			batches[key].timestamp = ts
+		}
+	}
+
+	for _, batch := range batches {
+		if batch.timestamp.IsZero() {
+			batch.timestamp = time.Now()
+		}
+		if err := sm.client.MarkRead(context.Background(), batch.ids, batch.timestamp, chatJID, batch.sender); err != nil {
+			sm.uiHandler.PrintError(fmt.Errorf("failed to mark messages as read: %v", err))
+		}
+	}
+
+	sm.uiHandler.SetChats(sm.db.GetChatIds())
+}
+
+func (sm *SessionManager) downloadCommand(params []string, preview, show bool) {
+	if !checkParam(params, 1) {
+		name := "download"
+		if preview && !show {
+			name = "open"
+		} else if show {
+			name = "show"
+		}
+		sm.printCommandUsage(name, "[message-id[]")
+		return
+	}
+
+	msg, ok := sm.db.GetMessage(params[0])
+	if !ok {
+		sm.uiHandler.PrintError(errors.New("message not found"))
+		return
+	}
+	if show && msg.Kind != MessageKindImage {
+		sm.uiHandler.PrintError(errors.New("show only works for image messages"))
+		return
+	}
+
+	path, err := sm.downloadMessage(msg, preview)
+	if err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	if show {
+		sm.uiHandler.PrintFile(path)
+		return
+	}
+	if preview {
+		sm.uiHandler.OpenFile(path)
+		return
+	}
+	sm.uiHandler.PrintText("[::d] -> " + path + "[::-]")
+}
+
+func (sm *SessionManager) openMessageURL(params []string) {
+	if !checkParam(params, 1) {
+		sm.printCommandUsage("url", "[message-id[]")
+		return
+	}
+	msg, ok := sm.db.GetMessage(params[0])
+	if !ok {
+		sm.uiHandler.PrintError(errors.New("message not found"))
+		return
+	}
+	url := urlPattern.FindString(msg.Text)
+	if url == "" {
+		sm.uiHandler.PrintText("No URL found in message")
+		return
+	}
+	sm.uiHandler.OpenFile(url)
+}
+
+func (sm *SessionManager) sendMediaCommand(params []string, kind MessageKind) {
+	if sm.currentReceiver == "" {
+		sm.printCommandUsage(commandNameForKind(kind), "-> only works in a chat")
+		return
+	}
+	if !checkParam(params, 1) {
+		sm.printCommandUsage(commandNameForKind(kind), "/path/to/file")
+		return
+	}
+	path := strings.Join(params, " ")
+	sm.uiHandler.PrintError(sm.sendMedia(sm.currentReceiver, path, kind))
+}
+
+func (sm *SessionManager) revokeMessage(params []string) {
+	if !checkParam(params, 1) {
+		sm.printCommandUsage("revoke", "[message-id[]")
+		return
+	}
+	if sm.client == nil || !sm.client.IsConnected() {
+		sm.uiHandler.PrintError(errors.New("not connected to WhatsApp"))
+		return
+	}
+
+	msg, ok := sm.db.GetMessage(params[0])
+	if !ok {
+		sm.uiHandler.PrintError(errors.New("message not found"))
+		return
+	}
+	chatJID, err := types.ParseJID(msg.ChatId)
+	if err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("invalid chat JID: %v", err))
+		return
+	}
+	if _, err = sm.client.RevokeMessage(context.Background(), chatJID, types.MessageID(msg.Id)); err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	sm.db.MarkMessageRevoked(msg.Id)
+	if sm.currentReceiver == msg.ChatId {
+		sm.uiHandler.NewScreen(sm.getMessages(msg.ChatId))
+	}
+	sm.uiHandler.PrintText("revoked: " + msg.Id)
+}
+
+func (sm *SessionManager) leaveCurrentGroup() {
+	groupJID, err := sm.currentGroupJID()
+	if err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	if err = sm.client.LeaveGroup(context.Background(), groupJID); err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	sm.uiHandler.PrintText("left group " + groupJID.String())
+}
+
+func (sm *SessionManager) createGroup(params []string) {
+	if !checkParam(params, 1) {
+		sm.printCommandUsage("create", "[user-id[] [user-id[] New Group Subject")
+		sm.printCommandUsage("create", "New Group Subject")
+		return
+	}
+
+	participants := make([]types.JID, 0)
+	idx := 0
+	for idx < len(params) && strings.Contains(params[idx], CONTACTSUFFIX) {
+		participant, err := types.ParseJID(params[idx])
+		if err != nil {
+			sm.uiHandler.PrintError(fmt.Errorf("invalid user id %q: %v", params[idx], err))
+			return
+		}
+		participants = append(participants, participant)
+		idx++
+	}
+
+	name := strings.Join(params[idx:], " ")
+	if name == "" {
+		name = strings.Join(params, " ")
+		participants = nil
+	}
+
+	groupInfo, err := sm.client.CreateGroup(context.Background(), whatsmeow.ReqCreateGroup{
+		Name:         name,
+		Participants: participants,
+	})
+	if err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+
+	sm.db.AddChat(Chat{
+		Id:          groupInfo.JID.String(),
+		IsGroup:     true,
+		Name:        groupInfo.Name,
+		LastMessage: time.Now().Unix(),
+	})
+	sm.uiHandler.SetChats(sm.db.GetChatIds())
+	sm.uiHandler.PrintText("created new group " + groupInfo.JID.String())
+}
+
+func (sm *SessionManager) updateCurrentGroupParticipants(params []string, action whatsmeow.ParticipantChange, command, success string) {
+	groupJID, err := sm.currentGroupJID()
+	if err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	if !checkParam(params, 1) {
+		sm.printCommandUsage(command, "[user-id[]")
+		return
+	}
+
+	participants := make([]types.JID, 0, len(params))
+	for _, raw := range params {
+		jid, err := types.ParseJID(raw)
+		if err != nil {
+			sm.uiHandler.PrintError(fmt.Errorf("invalid user id %q: %v", raw, err))
+			return
+		}
+		participants = append(participants, jid)
+	}
+
+	if _, err = sm.client.UpdateGroupParticipants(context.Background(), groupJID, participants, action); err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	sm.uiHandler.PrintText(success + " for " + groupJID.String())
+}
+
+func (sm *SessionManager) updateCurrentGroupSubject(params []string) {
+	groupJID, err := sm.currentGroupJID()
+	if err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+	if !checkParam(params, 1) {
+		sm.printCommandUsage("subject", "new-subject -> in group chat")
+		return
+	}
+
+	name := strings.Join(params, " ")
+	if err = sm.client.SetGroupName(context.Background(), groupJID, name); err != nil {
+		sm.uiHandler.PrintError(err)
+		return
+	}
+
+	sm.db.AddChat(Chat{
+		Id:      groupJID.String(),
+		IsGroup: true,
+		Name:    name,
+	})
+	sm.uiHandler.SetChats(sm.db.GetChatIds())
+	sm.uiHandler.PrintText("updated subject for " + groupJID.String())
+}
+
+func (sm *SessionManager) currentGroupJID() (types.JID, error) {
+	if sm.currentReceiver == "" || !strings.Contains(sm.currentReceiver, GROUPSUFFIX) {
+		return types.JID{}, errors.New("not a group")
+	}
+	return types.ParseJID(sm.currentReceiver)
+}
+
+func (sm *SessionManager) printCommandUsage(command, usage string) {
+	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] " + command + " " + usage)
+}
+
+func checkParam(arr []string, length int) bool {
+	return arr != nil && len(arr) >= length
+}
+
+func (sm *SessionManager) getMessages(wid string) []Message {
+	return sm.db.GetMessages(wid)
+}
+
+func (sm *SessionManager) sendText(wid, text string) {
+	if sm.client == nil || !sm.client.IsConnected() {
+		sm.uiHandler.PrintError(errors.New("not connected to WhatsApp"))
+		return
+	}
+
 	receiver, err := types.ParseJID(wid)
 	if err != nil {
 		sm.uiHandler.PrintError(fmt.Errorf("invalid JID: %v", err))
 		return
 	}
-	
-	// Create message
-	msg := &waProto.Message{
-		Conversation: proto.String(text),
-	}
-	
-	// Send message
+
+	raw := &waProto.Message{Conversation: proto.String(text)}
 	sm.lastSent = time.Now()
-	resp, err := sm.client.SendMessage(context.Background(), receiver, msg)
-	
+	resp, err := sm.client.SendMessage(context.Background(), receiver, raw)
 	if err != nil {
 		sm.uiHandler.PrintError(fmt.Errorf("failed to send message: %v", err))
-	} else {
-		// Create a Message struct to save to the database
-		newMsg := Message{
-			Id:          resp.ID,
-			ChatId:      wid,
-			FromMe:      true,
-			Timestamp:   uint64(time.Now().Unix()),
-			Text:        text,
-			ContactId:   sm.client.Store.ID.String(),
-			ContactName: "Me",
-			ContactShort: "Me",
+		return
+	}
+
+	newMsg := sm.outgoingMessageFromSendResponse(resp, wid, raw, MessageKindText, text, "", "")
+	sm.db.AddMessage(newMsg, false)
+	if sm.currentReceiver == wid {
+		sm.uiHandler.NewMessage(newMsg)
+	}
+	sm.uiHandler.SetChats(sm.db.GetChatIds())
+}
+
+func (sm *SessionManager) sendMedia(chatID, path string, kind MessageKind) error {
+	if sm.client == nil || !sm.client.IsConnected() {
+		return errors.New("not connected to WhatsApp")
+	}
+
+	data, mimeType, fileName, err := readUploadFile(path)
+	if err != nil {
+		return err
+	}
+
+	receiver, err := types.ParseJID(chatID)
+	if err != nil {
+		return fmt.Errorf("invalid JID: %v", err)
+	}
+
+	uploadResp, err := sm.client.Upload(context.Background(), data, uploadMediaType(kind))
+	if err != nil {
+		return fmt.Errorf("failed to upload file: %v", err)
+	}
+
+	fileLength := uploadResp.FileLength
+	raw := &waProto.Message{}
+	switch kind {
+	case MessageKindImage:
+		raw.ImageMessage = &waProto.ImageMessage{
+			Mimetype:      proto.String(mimeType),
+			URL:           &uploadResp.URL,
+			DirectPath:    &uploadResp.DirectPath,
+			MediaKey:      uploadResp.MediaKey,
+			FileEncSHA256: uploadResp.FileEncSHA256,
+			FileSHA256:    uploadResp.FileSHA256,
+			FileLength:    &fileLength,
 		}
-		
-		sm.db.AddMessage(newMsg)
-		
-		if sm.currentReceiver == wid {
-			sm.uiHandler.NewMessage(newMsg)
+	case MessageKindVideo:
+		raw.VideoMessage = &waProto.VideoMessage{
+			Mimetype:      proto.String(mimeType),
+			URL:           &uploadResp.URL,
+			DirectPath:    &uploadResp.DirectPath,
+			MediaKey:      uploadResp.MediaKey,
+			FileEncSHA256: uploadResp.FileEncSHA256,
+			FileSHA256:    uploadResp.FileSHA256,
+			FileLength:    &fileLength,
 		}
+	case MessageKindAudio:
+		raw.AudioMessage = &waProto.AudioMessage{
+			Mimetype:      proto.String(mimeType),
+			URL:           &uploadResp.URL,
+			DirectPath:    &uploadResp.DirectPath,
+			MediaKey:      uploadResp.MediaKey,
+			FileEncSHA256: uploadResp.FileEncSHA256,
+			FileSHA256:    uploadResp.FileSHA256,
+			FileLength:    &fileLength,
+			PTT:           proto.Bool(false),
+		}
+	case MessageKindDocument:
+		raw.DocumentMessage = &waProto.DocumentMessage{
+			Mimetype:      proto.String(mimeType),
+			Title:         proto.String(fileName),
+			FileName:      proto.String(fileName),
+			URL:           &uploadResp.URL,
+			DirectPath:    &uploadResp.DirectPath,
+			MediaKey:      uploadResp.MediaKey,
+			FileEncSHA256: uploadResp.FileEncSHA256,
+			FileSHA256:    uploadResp.FileSHA256,
+			FileLength:    &fileLength,
+		}
+	default:
+		return errors.New("unsupported media type")
+	}
+
+	sm.lastSent = time.Now()
+	resp, err := sm.client.SendMessage(context.Background(), receiver, raw)
+	if err != nil {
+		return fmt.Errorf("failed to send media message: %v", err)
+	}
+
+	text := mediaDisplayText(kind, fileName, "")
+	newMsg := sm.outgoingMessageFromSendResponse(resp, chatID, raw, kind, text, mimeType, fileName)
+	sm.db.AddMessage(newMsg, false)
+	if sm.currentReceiver == chatID {
+		sm.uiHandler.NewMessage(newMsg)
+	}
+	sm.uiHandler.SetChats(sm.db.GetChatIds())
+	return nil
+}
+
+func (sm *SessionManager) outgoingMessageFromSendResponse(resp whatsmeow.SendResponse, chatID string, raw *waProto.Message, kind MessageKind, text, mimeType, fileName string) Message {
+	selfID := ""
+	if sm.client != nil && sm.client.Store != nil && sm.client.Store.ID != nil {
+		selfID = sm.client.Store.ID.String()
+	}
+
+	contactID := chatID
+	if strings.Contains(chatID, GROUPSUFFIX) {
+		contactID = selfID
+	}
+
+	return Message{
+		Id:           string(resp.ID),
+		ChatId:       chatID,
+		SenderId:     selfID,
+		ContactId:    contactID,
+		ContactName:  sm.db.GetIdName(contactID),
+		ContactShort: sm.db.GetIdShort(contactID),
+		Timestamp:    uint64(resp.Timestamp.Unix()),
+		FromMe:       true,
+		Text:         text,
+		Kind:         kind,
+		MimeType:     mimeType,
+		FileName:     fileName,
+		RawMessage:   raw,
 	}
 }
 
-// notify will send a notification via beeep if EnableNotification is true. If
-// UseTerminalBell is true it will send a terminal bell instead.
 func notify(title, message string) error {
 	if !config.Config.General.EnableNotifications {
 		return nil
@@ -776,7 +954,6 @@ func notify(title, message string) error {
 	return beeep.Notify(title, message, "")
 }
 
-// Event handler for whatsmeow events
 type eventHandler struct {
 	sm *SessionManager
 }
@@ -784,112 +961,391 @@ type eventHandler struct {
 func (eh *eventHandler) Handle(evt interface{}) {
 	switch v := evt.(type) {
 	case *events.Message:
-		eh.handleMessage(v)
+		eh.handleLiveMessage(v)
+	case *events.HistorySync:
+		eh.handleHistorySync(v)
 	case *events.Connected:
 		eh.sm.StatusChannel <- StatusMsg{true, nil}
 	case *events.Disconnected:
 		eh.sm.StatusChannel <- StatusMsg{false, nil}
 	case *events.LoggedOut:
 		eh.sm.StatusChannel <- StatusMsg{false, nil}
-		reasonText := fmt.Sprintf("%v", v.Reason)
-		eh.sm.uiHandler.PrintText("Logged out: " + reasonText)
+		eh.sm.uiHandler.PrintText("Logged out: " + fmt.Sprintf("%v", v.Reason))
 	}
 }
 
-// Handle incoming messages
-func (eh *eventHandler) handleMessage(evt *events.Message) {
-	chatJID := evt.Info.Chat.String()
-	timestamp := uint64(evt.Info.Timestamp.Unix())
-	
-	// For simplicity, we'll only handle text messages for now
-	if evt.Message.GetConversation() != "" {
-		text := evt.Message.GetConversation()
-		
-		// Create a Message struct that our application can use
-		msg := Message{
-			Id:          evt.Info.ID,
-			ChatId:      chatJID,
-			FromMe:      evt.Info.IsFromMe,
-			Timestamp:   timestamp,
-			Text:        text,
-			ContactId:   evt.Info.Sender.String(),
-			ContactName: eh.getContactName(evt.Info.Sender),
-			ContactShort: eh.getContactShort(evt.Info.Sender),
+func (eh *eventHandler) handleLiveMessage(evt *events.Message) {
+	msg, action, ok := eh.normalizeEventMessage(evt)
+	if !ok {
+		return
+	}
+
+	switch action {
+	case "revoke":
+		if eh.sm.db.MarkMessageRevoked(msg.Id) && eh.sm.currentReceiver == msg.ChatId {
+			eh.sm.uiHandler.NewScreen(eh.sm.getMessages(msg.ChatId))
 		}
-		
-		// Add to database
-		eh.sm.db.AddMessage(msg)
-		
-		// If this is for the current chat, update the UI
-		if chatJID == eh.sm.currentReceiver {
+		eh.sm.uiHandler.SetChats(eh.sm.db.GetChatIds())
+		return
+	case "ignore":
+		return
+	}
+
+	markUnread := !msg.FromMe && msg.ChatId != eh.sm.currentReceiver
+	isNew := eh.sm.db.AddMessage(msg, markUnread)
+	if msg.ChatId == eh.sm.currentReceiver {
+		if isNew {
 			eh.sm.uiHandler.NewMessage(msg)
 		} else {
-			// Notify if message is recent and not in focus
-			if timestamp > uint64(time.Now().Unix()-30) && !evt.Info.IsFromMe {
-				eh.sm.db.NewUnreadChat(chatJID)
-				err := notify(eh.getContactShort(evt.Info.Sender), text)
-				if err != nil {
-					eh.sm.uiHandler.PrintError(err)
-				}
-			}
+			eh.sm.uiHandler.NewScreen(eh.sm.getMessages(msg.ChatId))
+		}
+	} else if markUnread && msg.Timestamp > uint64(time.Now().Unix()-30) {
+		if err := notify(msg.ContactShort, msg.Text); err != nil {
+			eh.sm.uiHandler.PrintError(err)
 		}
 	}
-	
-	// Handle media messages (images, documents, etc.)
-	// This is a simplified version; we just create a text message with a media indicator
-	if evt.Message.GetImageMessage() != nil {
-		imgMsg := evt.Message.GetImageMessage()
-		caption := imgMsg.GetCaption()
-		if caption == "" {
-			caption = "[IMAGE]"
-		} else {
-			caption = "[IMAGE] " + caption
-		}
-		
-		msg := Message{
-			Id:          evt.Info.ID,
-			ChatId:      chatJID,
-			FromMe:      evt.Info.IsFromMe,
-			Timestamp:   timestamp,
-			Text:        caption,
-			ContactId:   evt.Info.Sender.String(),
-			ContactName: eh.getContactName(evt.Info.Sender),
-			ContactShort: eh.getContactShort(evt.Info.Sender),
-		}
-		
-		eh.sm.db.AddMessage(msg)
-		
-		if chatJID == eh.sm.currentReceiver {
-			eh.sm.uiHandler.NewMessage(msg)
-		}
-	}
-	
-	// Make sure to update the chat list with new ordering
 	eh.sm.uiHandler.SetChats(eh.sm.db.GetChatIds())
 }
 
-// Helper to get contact name
+func (eh *eventHandler) handleHistorySync(evt *events.HistorySync) {
+	if evt == nil || evt.Data == nil {
+		return
+	}
+
+	for _, conv := range evt.Data.GetConversations() {
+		chatID := conv.GetID()
+		if chatID == "" {
+			chatID = conv.GetNewJID()
+		}
+		if chatID == "" {
+			continue
+		}
+
+		chatJID, err := types.ParseJID(chatID)
+		if err != nil {
+			continue
+		}
+
+		chatName := conv.GetName()
+		if chatName == "" {
+			chatName = conv.GetDisplayName()
+		}
+		if chatName == "" {
+			chatName = eh.sm.getChatName(chatJID)
+		}
+
+		lastMessage := int64(conv.GetLastMsgTimestamp())
+		if lastMessage == 0 {
+			lastMessage = int64(conv.GetConversationTimestamp())
+		}
+		eh.sm.db.AddChat(Chat{
+			Id:          chatID,
+			IsGroup:     chatJID.Server == types.GroupServer,
+			Name:        chatName,
+			Unread:      int(conv.GetUnreadCount()),
+			LastMessage: lastMessage,
+		})
+
+		for _, histMsg := range conv.GetMessages() {
+			webMsg := histMsg.GetMessage()
+			if webMsg == nil {
+				continue
+			}
+			parsed, err := eh.sm.client.ParseWebMessage(chatJID, webMsg)
+			if err != nil {
+				continue
+			}
+			msg, action, ok := eh.normalizeEventMessage(parsed)
+			if !ok || action != "" {
+				continue
+			}
+			eh.sm.db.AddMessage(msg, false)
+		}
+		eh.sm.db.UpdateChatUnread(chatID, int(conv.GetUnreadCount()))
+	}
+
+	eh.sm.uiHandler.SetChats(eh.sm.db.GetChatIds())
+	if eh.sm.currentReceiver != "" {
+		eh.sm.uiHandler.NewScreen(eh.sm.getMessages(eh.sm.currentReceiver))
+	}
+}
+
+func (eh *eventHandler) normalizeEventMessage(evt *events.Message) (Message, string, bool) {
+	if evt == nil || evt.Message == nil {
+		return Message{}, "ignore", false
+	}
+
+	if protocol := evt.Message.GetProtocolMessage(); protocol != nil {
+		if protocol.GetType() == waProto.ProtocolMessage_REVOKE && protocol.GetKey() != nil {
+			return Message{
+				Id:     protocol.GetKey().GetID(),
+				ChatId: evt.Info.Chat.String(),
+			}, "revoke", true
+		}
+		return Message{}, "ignore", false
+	}
+
+	msg, ok := eh.messageFromInfo(evt.Info, evt.Message)
+	return msg, "", ok
+}
+
+func (eh *eventHandler) messageFromInfo(info types.MessageInfo, raw *waProto.Message) (Message, bool) {
+	if raw == nil {
+		return Message{}, false
+	}
+
+	chatID := info.Chat.String()
+	if chatID == "" {
+		return Message{}, false
+	}
+
+	contactID, contactName, contactShort := eh.contactForMessage(info)
+	msg := Message{
+		Id:           string(info.ID),
+		ChatId:       chatID,
+		SenderId:     info.Sender.String(),
+		ContactId:    contactID,
+		ContactName:  contactName,
+		ContactShort: contactShort,
+		Timestamp:    uint64(info.Timestamp.Unix()),
+		FromMe:       info.IsFromMe,
+		RawMessage:   raw,
+	}
+
+	switch {
+	case raw.GetConversation() != "":
+		msg.Kind = MessageKindText
+		msg.Text = raw.GetConversation()
+		return msg, true
+	case raw.GetExtendedTextMessage() != nil:
+		ext := raw.GetExtendedTextMessage()
+		msg.Kind = MessageKindText
+		msg.Text = ext.GetText()
+		msg.Forwarded = ext.GetContextInfo().GetIsForwarded()
+		return msg, true
+	case raw.GetImageMessage() != nil:
+		image := raw.GetImageMessage()
+		msg.Kind = MessageKindImage
+		msg.MimeType = image.GetMimetype()
+		msg.Text = mediaDisplayText(MessageKindImage, "", image.GetCaption())
+		msg.Forwarded = image.GetContextInfo().GetIsForwarded()
+		return msg, true
+	case raw.GetVideoMessage() != nil:
+		video := raw.GetVideoMessage()
+		msg.Kind = MessageKindVideo
+		msg.MimeType = video.GetMimetype()
+		msg.Text = mediaDisplayText(MessageKindVideo, "", video.GetCaption())
+		msg.Forwarded = video.GetContextInfo().GetIsForwarded()
+		return msg, true
+	case raw.GetAudioMessage() != nil:
+		audio := raw.GetAudioMessage()
+		msg.Kind = MessageKindAudio
+		msg.MimeType = audio.GetMimetype()
+		msg.Text = mediaDisplayText(MessageKindAudio, "", "")
+		msg.Forwarded = audio.GetContextInfo().GetIsForwarded()
+		return msg, true
+	case raw.GetDocumentMessage() != nil:
+		doc := raw.GetDocumentMessage()
+		msg.Kind = MessageKindDocument
+		msg.MimeType = doc.GetMimetype()
+		msg.FileName = doc.GetFileName()
+		msg.Text = mediaDisplayText(MessageKindDocument, doc.GetFileName(), doc.GetCaption())
+		msg.Forwarded = doc.GetContextInfo().GetIsForwarded()
+		return msg, true
+	default:
+		return Message{}, false
+	}
+}
+
+func (eh *eventHandler) contactForMessage(info types.MessageInfo) (string, string, string) {
+	if info.IsGroup {
+		id := info.Sender.String()
+		return id, eh.getContactName(info.Sender), eh.getContactShort(info.Sender)
+	}
+	id := info.Chat.String()
+	chat := info.Chat
+	return id, eh.getContactName(chat), eh.getContactShort(chat)
+}
+
 func (eh *eventHandler) getContactName(jid types.JID) string {
-	if eh.sm.client != nil && eh.sm.client.Store != nil {
+	if eh.sm.client != nil && eh.sm.client.Store != nil && eh.sm.client.Store.Contacts != nil {
 		contact, err := eh.sm.client.Store.Contacts.GetContact(context.Background(), jid)
-		if err == nil && contact.Found && contact.FullName != "" {
-			return contact.FullName
+		if err == nil && contact.Found {
+			if contact.FullName != "" {
+				return contact.FullName
+			}
+			if contact.PushName != "" {
+				return contact.PushName
+			}
 		}
 	}
-	
-	// Fallback to the database
 	return eh.sm.db.GetIdName(jid.String())
 }
 
-// Helper to get short contact name
 func (eh *eventHandler) getContactShort(jid types.JID) string {
-	if eh.sm.client != nil && eh.sm.client.Store != nil {
+	if eh.sm.client != nil && eh.sm.client.Store != nil && eh.sm.client.Store.Contacts != nil {
 		contact, err := eh.sm.client.Store.Contacts.GetContact(context.Background(), jid)
 		if err == nil && contact.Found && contact.PushName != "" {
 			return contact.PushName
 		}
 	}
-	
-	// Fallback to the database
 	return eh.sm.db.GetIdShort(jid.String())
+}
+
+func (sm *SessionManager) downloadMessage(msg Message, preview bool) (string, error) {
+	if sm.client == nil || !sm.client.IsConnected() {
+		return "", errors.New("not connected to WhatsApp")
+	}
+
+	downloadable, err := downloadableFromMessage(msg)
+	if err != nil {
+		return "", err
+	}
+
+	baseDir := config.Config.General.DownloadPath
+	if preview {
+		baseDir = config.Config.General.PreviewPath
+	}
+	if err = os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", err
+	}
+
+	fileName := downloadFileName(msg)
+	fullPath := filepath.Join(baseDir, fileName)
+	if _, err = os.Stat(fullPath); err == nil {
+		return fullPath, nil
+	}
+
+	data, err := sm.client.Download(context.Background(), downloadable)
+	if err != nil {
+		return "", err
+	}
+	if err = os.WriteFile(fullPath, data, 0o644); err != nil {
+		return "", err
+	}
+	return fullPath, nil
+}
+
+func downloadableFromMessage(msg Message) (whatsmeow.DownloadableMessage, error) {
+	if msg.RawMessage == nil {
+		return nil, errors.New("This is not a downloadable message")
+	}
+	switch msg.Kind {
+	case MessageKindImage:
+		if media := msg.RawMessage.GetImageMessage(); media != nil {
+			return media, nil
+		}
+	case MessageKindVideo:
+		if media := msg.RawMessage.GetVideoMessage(); media != nil {
+			return media, nil
+		}
+	case MessageKindAudio:
+		if media := msg.RawMessage.GetAudioMessage(); media != nil {
+			return media, nil
+		}
+	case MessageKindDocument:
+		if media := msg.RawMessage.GetDocumentMessage(); media != nil {
+			return media, nil
+		}
+	}
+	return nil, errors.New("This is not a downloadable message")
+}
+
+func readUploadFile(path string) ([]byte, string, string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileName := filepath.Base(path)
+	mimeType := detectMimeType(path, data)
+	return data, mimeType, fileName, nil
+}
+
+func detectMimeType(path string, data []byte) string {
+	if len(data) == 0 {
+		if extType := mime.TypeByExtension(filepath.Ext(path)); extType != "" {
+			return stripMimeParams(extType)
+		}
+		return "application/octet-stream"
+	}
+	sample := data
+	if len(sample) > 512 {
+		sample = sample[:512]
+	}
+	detected := stripMimeParams(http.DetectContentType(sample))
+	if extType := mime.TypeByExtension(filepath.Ext(path)); extType != "" {
+		extType = stripMimeParams(extType)
+		if detected == "application/octet-stream" || strings.HasPrefix(extType, "audio/") || strings.HasPrefix(extType, "video/") {
+			return extType
+		}
+	}
+	return detected
+}
+
+func stripMimeParams(value string) string {
+	if idx := strings.Index(value, ";"); idx >= 0 {
+		return value[:idx]
+	}
+	return value
+}
+
+func downloadFileName(msg Message) string {
+	if msg.FileName != "" {
+		return msg.FileName
+	}
+	ext := ""
+	if msg.MimeType != "" {
+		if exts, err := mime.ExtensionsByType(msg.MimeType); err == nil && len(exts) > 0 {
+			ext = exts[0]
+		}
+	}
+	return msg.Id + ext
+}
+
+func uploadMediaType(kind MessageKind) whatsmeow.MediaType {
+	switch kind {
+	case MessageKindImage:
+		return whatsmeow.MediaImage
+	case MessageKindVideo:
+		return whatsmeow.MediaVideo
+	case MessageKindAudio:
+		return whatsmeow.MediaAudio
+	default:
+		return whatsmeow.MediaDocument
+	}
+}
+
+func commandNameForKind(kind MessageKind) string {
+	switch kind {
+	case MessageKindImage:
+		return "sendimage"
+	case MessageKindVideo:
+		return "sendvideo"
+	case MessageKindAudio:
+		return "sendaudio"
+	default:
+		return "upload"
+	}
+}
+
+func mediaDisplayText(kind MessageKind, fileName, caption string) string {
+	label := "[FILE]"
+	switch kind {
+	case MessageKindImage:
+		label = "[IMAGE]"
+	case MessageKindVideo:
+		label = "[VIDEO]"
+	case MessageKindAudio:
+		label = "[AUDIO]"
+	case MessageKindDocument:
+		label = "[DOCUMENT]"
+	}
+	parts := []string{label}
+	if fileName != "" && kind == MessageKindDocument {
+		parts = append(parts, fileName)
+	}
+	if caption != "" {
+		parts = append(parts, caption)
+	}
+	return strings.Join(parts, " ")
 }

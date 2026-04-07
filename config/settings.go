@@ -157,7 +157,7 @@ func InitConfig() {
 		}
 	}
 	if err != nil {
-		fmt.Printf(err.Error())
+		fmt.Print(err.Error())
 	}
 }
 
