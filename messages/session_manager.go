@@ -148,8 +148,7 @@ func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
 		}
 		
 		// Create client
-		clientLog := waLog.Stdout("Client", "DEBUG", true)
-		client := whatsmeow.NewClient(deviceStore, clientLog)
+		client := whatsmeow.NewClient(deviceStore, waLog.Noop)
 		
 		// Set event handler
 		client.AddEventHandler(sm.eventHandler.Handle)
