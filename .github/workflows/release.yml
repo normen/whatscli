@@ -35,19 +35,14 @@ jobs:
             goos: windows
             goarch: amd64
             binary: whatscli.exe
-          - name: macos
-            runs_on: macos-13
-            goos: darwin
-            goarch: amd64
-            binary: whatscli
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -63,7 +58,7 @@ jobs:
           go build -o "dist/$BINARY" .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}-asset
           path: dist/${{ matrix.binary }}
@@ -73,12 +68,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -97,7 +92,7 @@ jobs:
           go build -o dist/whatscli .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: raspberrypi-asset
           path: dist/whatscli
@@ -113,7 +108,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
@@ -124,7 +119,7 @@ jobs:
           echo "version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: dist
 
@@ -147,14 +142,6 @@ jobs:
             cd release-assets
             zip "whatscli-${RELEASE_VERSION}-windows.zip" whatscli.exe
             rm whatscli.exe
-          )
-
-          cp dist/macos-asset/whatscli release-assets/whatscli
-          chmod +x release-assets/whatscli
-          (
-            cd release-assets
-            zip "whatscli-${RELEASE_VERSION}-macos.zip" whatscli
-            rm whatscli
           )
 
           cp dist/raspberrypi-asset/whatscli release-assets/whatscli
@@ -201,7 +188,7 @@ jobs:
 
     steps:
       - name: Checkout tap repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: normen/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
