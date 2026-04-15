@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -1299,7 +1300,10 @@ func stripMimeParams(value string) string {
 
 func downloadFileName(msg Message) string {
 	if msg.FileName != "" {
-		return msg.FileName
+		safeName := path.Base(strings.ReplaceAll(msg.FileName, "\\", "/"))
+		if safeName != "" && safeName != "." && safeName != ".." {
+			return safeName
+		}
 	}
 	ext := ""
 	if msg.MimeType != "" {
