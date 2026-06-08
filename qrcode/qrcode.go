@@ -189,3 +189,9 @@ func (_ *qrcodeTerminal) SetOutput(out io.Writer) {
 }
 
 var outer = colorable.NewColorableStdout()
+
+// SavePNG writes content as a proper QR code PNG (with the required quiet-zone
+// border) to path. This is more reliably scannable than the terminal rendering.
+func SavePNG(content, path string, size int) error {
+	return qrcode.WriteFile(content, qrcode.Medium, size, path)
+}

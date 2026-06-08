@@ -70,6 +70,24 @@ func (md *MessageDatabase) AddMessage(msg Message, markUnread bool) bool {
 	return true
 }
 
+// UpdateMessageText overwrites the text of an existing message and returns the
+// updated message. It is used by the streaming bot to rewrite its own reply as
+// new tokens arrive (an edit), where AddMessage would refuse to replace a
+// non-empty text. Returns false if no message with the given id exists.
+func (md *MessageDatabase) UpdateMessageText(id, text string) (Message, bool) {
+	md.messageLock.Lock()
+	defer md.messageLock.Unlock()
+
+	existing, ok := md.messagesById[id]
+	if !ok {
+		return Message{}, false
+	}
+	existing.Text = text
+	md.messagesById[id] = existing
+	md.replaceMessageLocked(existing)
+	return existing, true
+}
+
 func (md *MessageDatabase) replaceMessageLocked(msg Message) {
 	msgs := md.messages[msg.ChatId]
 	for idx, current := range msgs {

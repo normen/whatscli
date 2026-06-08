@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -47,6 +48,11 @@ type SessionManager struct {
 	lastSent        time.Time
 	started         bool
 	eventHandler    *eventHandler
+	userKeys        map[string]string // per-chat OpenAI keys supplied by users (in memory only)
+	userKeysLock    sync.RWMutex
+	aiChats         map[string]*aiChatState // per-chat "/ai" conversation state (in memory only)
+	aiChatsLock     sync.Mutex
+	currentRecvLock sync.RWMutex // guards currentReceiver against the streaming-bot goroutine
 }
 
 // Init initializes the SessionManager.
@@ -61,6 +67,8 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.ContactChannel = make(chan Contact, 10)
 	sm.TextChannel = make(chan *waProto.Message, 10)
 	sm.eventHandler = &eventHandler{sm: sm}
+	sm.userKeys = make(map[string]string)
+	sm.aiChats = make(map[string]*aiChatState)
 }
 
 // StartManager starts the receiver and message handling goroutine.
@@ -125,8 +133,18 @@ func (sm *SessionManager) runManager() error {
 }
 
 func (sm *SessionManager) setCurrentReceiver(id string) {
+	sm.currentRecvLock.Lock()
 	sm.currentReceiver = id
+	sm.currentRecvLock.Unlock()
 	sm.uiHandler.NewScreen(sm.getMessages(id))
+}
+
+// getCurrentReceiver returns the currently selected chat id. It is safe to call
+// from the bot's streaming goroutine (which runs off the manager goroutine).
+func (sm *SessionManager) getCurrentReceiver() string {
+	sm.currentRecvLock.RLock()
+	defer sm.currentRecvLock.RUnlock()
+	return sm.currentReceiver
 }
 
 func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
@@ -201,12 +219,23 @@ func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 		return fmt.Errorf("error connecting to WhatsApp: %v", err)
 	}
 
+	pngPath := filepath.Join(filepath.Dir(config.GetSessionFilePath()), "whatscli-qr.png")
+	opened := false
 	for evt := range qrChan {
 		switch evt.Event {
 		case "code":
 			terminal := qrcode.New()
 			terminal.SetOutput(tview.ANSIWriter(sm.uiHandler.GetWriter()))
 			terminal.Get(evt.Code).Print()
+			// terminal QR can be unscannable (narrow panel / no quiet zone), so also
+			// save a clean PNG and open it once for the user to scan.
+			if err := qrcode.SavePNG(evt.Code, pngPath, 512); err == nil {
+				sm.uiHandler.PrintText("QR também salvo em " + pngPath + " — abra essa imagem e escaneie se o QR acima não funcionar.")
+				if !opened {
+					opened = true
+					sm.uiHandler.OpenFile(pngPath)
+				}
+			}
 		case "success":
 			sm.uiHandler.PrintText("Successfully logged in!")
 			sm.StatusChannel <- StatusMsg{true, nil}
@@ -1002,6 +1031,9 @@ func (eh *eventHandler) handleLiveMessage(evt *events.Message) {
 
 	markUnread := !msg.FromMe && msg.ChatId != eh.sm.currentReceiver
 	isNew := eh.sm.db.AddMessage(msg, markUnread)
+	if isNew {
+		eh.sm.maybeReplyWithBot(msg)
+	}
 	if msg.ChatId == eh.sm.currentReceiver {
 		if isNew {
 			eh.sm.uiHandler.NewMessage(msg)
