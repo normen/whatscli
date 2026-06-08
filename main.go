@@ -64,7 +64,7 @@ func main() {
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetScrollable(false)
-	topBar.SetText("[::b] WhatsCLI " + VERSION + " [-::-]")
+	topBar.SetText("[::b] ZapTerm " + VERSION + " [-::-]")
 	topBar.SetBackgroundColor(bg)
 
 	// info bar: connection status (right)
@@ -618,7 +618,7 @@ func LoadShortcuts() {
 func PrintHelp() {
 	cmdPrefix := config.Config.General.CmdPrefix
 	hdr := config.Config.Colors.ListHeader
-	fmt.Fprintln(textView, "[-:-:b]Bem-vindo ao WhatsCLI "+VERSION+"[-:-:-]")
+	fmt.Fprintln(textView, "[-:-:b]Bem-vindo ao ZapTerm "+VERSION+"[-:-:-]")
 	fmt.Fprintln(textView, "")
 	fmt.Fprintln(textView, " • [::b]Tab[::-] alterna os painéis: [::b]Conversas[::-] → [::b]Mensagens[::-] → [::b]digitação[::-].")
 	fmt.Fprintln(textView, " • Escolha uma conversa à esquerda (↑/↓ e Enter) e digite embaixo para responder.")
@@ -636,7 +636,7 @@ func buildHelpText() string {
 	sec := func(title string) { fmt.Fprintf(&b, "\n["+hdr+"::b]%s[-::-]\n", title) }
 	row := func(keys, desc string) { fmt.Fprintf(&b, "  [::b]%-18s[::-] %s\n", keys, desc) }
 
-	fmt.Fprintln(&b, "["+hdr+"::bu]WhatsCLI "+VERSION+" — Guia rápido[-:-:-]")
+	fmt.Fprintln(&b, "["+hdr+"::bu]ZapTerm "+VERSION+" — Guia rápido[-:-:-]")
 
 	sec("Navegação")
 	row("Tab / Shift+Tab", "trocar de painel (Conversas/Mensagens/Digitação)")

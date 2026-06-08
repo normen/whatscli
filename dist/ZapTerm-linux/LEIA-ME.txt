@@ -1,0 +1,28 @@
+ZapTerm - WhatsApp na linha de comando (Linux)
+===============================================
+
+O QUE ESTA PASTA CONTEM
+- zapterm ............... o programa ja compilado (NAO precisa de Go)
+- zapterm.png ........... icone do aplicativo
+- Instalar-no-menu.sh ... coloca o ZapTerm no menu/tela inicial
+- Abrir-ZapTerm.sh ...... lancador inteligente: abre o programa numa
+                          janela de terminal (detecta kitty, gnome-terminal,
+                          konsole, alacritty, xterm... o primeiro que achar).
+                          NAO depende da configuracao de terminal do sistema.
+
+PASSO A PASSO (recomendado)
+1. Abra um terminal nesta pasta.
+2. Rode:
+      bash Instalar-no-menu.sh
+3. Abra o menu de aplicativos e procure por "ZapTerm".
+4. Clique no icone: vai abrir um terminal com o programa.
+5. Escaneie o QR Code com o WhatsApp do celular
+   (WhatsApp > Aparelhos conectados > Conectar um aparelho).
+
+SO QUERO TESTAR (sem instalar)
+   bash Abrir-ZapTerm.sh
+
+OBSERVACOES
+- Na primeira vez e preciso escanear o QR Code; depois reconecta sozinho.
+- Para sair da conta, digite /logout dentro do programa.
+- Ajuda e comandos: digite /help (ou tecle F1) dentro do programa.

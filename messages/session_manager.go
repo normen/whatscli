@@ -52,6 +52,8 @@ type SessionManager struct {
 	userKeysLock    sync.RWMutex
 	aiChats         map[string]*aiChatState // per-chat "/ai" conversation state (in memory only)
 	aiChatsLock     sync.Mutex
+	botMsgIDs       map[string]bool // ids of messages the bot itself generated (this session)
+	botMsgIDsLock   sync.Mutex
 	currentRecvLock sync.RWMutex // guards currentReceiver against the streaming-bot goroutine
 }
 
