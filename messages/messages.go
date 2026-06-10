@@ -14,7 +14,9 @@ type UiMessageHandler interface {
 	SetChats([]Chat)
 	PrintError(error)
 	PrintText(string)
-	PrintFile(string)
+	// PrintFile displays a downloaded image in the message panel; msgId ties the
+	// rendered image to its message (empty when there is no originating message).
+	PrintFile(path string, msgId string)
 	SetStatus(SessionStatus)
 	OpenFile(string)
 	GetWriter() io.Writer

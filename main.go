@@ -23,6 +23,14 @@ var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
 var curRegions []messages.Message
 
+// inlineImages caches rendered half-block art per message id, so images are
+// embedded inside their (clickable) message region and survive chat switches.
+var inlineImages = map[string]string{}
+
+// lastTextClick marks the last mouse click on the message panel; it lets the
+// highlight callback tell a mouse click apart from keyboard navigation.
+var lastTextClick time.Time
+
 var textView *tview.TextView
 var treeView *tview.TreeView
 var textInput *tview.InputField
@@ -87,6 +95,33 @@ func main() {
 	textView.SetBorder(true)
 	textView.SetTitle(" Mensagens ")
 	textView.SetTitleAlign(tview.AlignLeft)
+	// A mouse click on a message region highlights it (tview behavior); when the
+	// highlighted message is an attachment, the click also opens it in the
+	// system's native viewer. The capture below runs before the region highlight,
+	// so lastTextClick distinguishes clicks from keyboard navigation.
+	textView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		if action == tview.MouseLeftClick {
+			lastTextClick = time.Now()
+		}
+		return action, event
+	})
+	textView.SetHighlightedFunc(func(added, removed, remaining []string) {
+		if len(added) == 0 || time.Since(lastTextClick) > 500*time.Millisecond {
+			return
+		}
+		lastTextClick = time.Time{}
+		for _, msg := range curRegions {
+			if msg.Id != added[0] {
+				continue
+			}
+			switch msg.Kind {
+			case messages.MessageKindImage, messages.MessageKindVideo,
+				messages.MessageKindAudio, messages.MessageKindDocument:
+				sessionManager.CommandChannel <- messages.Command{"open", []string{msg.Id}}
+			}
+			return
+		}
+	})
 
 	PrintHelp()
 
@@ -658,9 +693,14 @@ func buildHelpText() string {
 	row(cmdPrefix+"sendaudio <arquivo>", "enviar áudio")
 
 	sec("Painel de mensagens (selecione uma mensagem com ↑/↓)")
+	row("clique (mouse)", "em mensagem com anexo: abre no visualizador do sistema")
 	row(k.MessageDownload, "baixar anexo")
 	row(k.MessageOpen, "baixar e abrir anexo")
-	row(k.MessageShow, "baixar e exibir imagem ("+config.Config.General.ShowCommand+")")
+	if canRenderInlineImages() {
+		row(k.MessageShow, "baixar e exibir a imagem dentro do terminal")
+	} else {
+		row(k.MessageShow, "baixar e exibir imagem ("+config.Config.General.ShowCommand+")")
+	}
 	row(k.MessageUrl, "abrir URL encontrada na mensagem")
 	row(k.MessageInfo, "informações da mensagem")
 	row(k.MessageRevoke, "apagar/revogar mensagem")
@@ -817,6 +857,47 @@ func PrintImage(path string) {
 		}
 	}
 	PrintError(err)
+	PrintText("[::d]este terminal não exibe imagens — clique na mensagem para abrir no visualizador do sistema[::-]")
+}
+
+// showInlineImage renders a downloaded image inside its message region and
+// repaints the chat. Returns false if the terminal/format is not supported.
+func showInlineImage(path, msgId string) bool {
+	if msgId == "" || !canRenderInlineImages() {
+		return false
+	}
+	_, _, width, _ := textView.GetInnerRect()
+	cols := width - 2
+	if cols > 100 {
+		cols = 100
+	}
+	block, err := renderInlineImage(path, cols, config.Config.General.InlineImageLines)
+	if err != nil {
+		return false // e.g. webp sticker — fall back to the external viewer flow
+	}
+	inlineImages[msgId] = block
+	textView.SetText(getMessagesString(curRegions))
+	if len(textView.GetHighlights()) > 0 {
+		textView.ScrollToHighlight()
+	} else {
+		textView.ScrollToEnd()
+	}
+	return true
+}
+
+// maybeAutoShowImage downloads and renders incoming images of the open chat
+// automatically when the terminal can display them inline.
+func maybeAutoShowImage(msg messages.Message) {
+	if msg.Kind != messages.MessageKindImage || !canRenderInlineImages() {
+		return
+	}
+	if _, ok := inlineImages[msg.Id]; ok {
+		return
+	}
+	select {
+	case sessionManager.CommandChannel <- messages.Command{"show", []string{msg.Id}}:
+	default: // channel full — the user can still press 's' or click the message
+	}
 }
 
 // updates the status bar
@@ -890,6 +971,16 @@ func getTextMessageString(msg *messages.Message) string {
 	} else { // message from others
 		out += "[-::d](" + time + ") [" + colorContact + "::b]" + msg.ContactShort + ": [-::-]" + text
 	}
+	switch msg.Kind {
+	case messages.MessageKindImage, messages.MessageKindVideo,
+		messages.MessageKindAudio, messages.MessageKindDocument:
+		out += " [::d](clique para abrir)[::-]"
+	}
+	// an already-rendered image lives inside the message region, so clicking
+	// the picture itself also opens the native viewer
+	if block, ok := inlineImages[msg.Id]; ok {
+		out += "\n" + block
+	}
 	out += "[\"\"]"
 	return out
 }
@@ -902,6 +993,7 @@ func (u UiHandler) NewMessage(msg messages.Message) {
 	go app.QueueUpdateDraw(func() {
 		curRegions = append(curRegions, msg)
 		PrintText(getTextMessageString(&msg))
+		maybeAutoShowImage(msg)
 	})
 }
 
@@ -929,11 +1021,12 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 		oldId := currentReceiver.Id
 
 		headerColor := tcell.ColorNames[config.Config.Colors.ListHeader]
+		recentsNode := tview.NewTreeNode("🕐 Recentes").SetColor(headerColor).SetSelectable(true)
 		groupsNode := tview.NewTreeNode("👥 Grupos").SetColor(headerColor).SetSelectable(true)
 		contactsNode := tview.NewTreeNode("👤 Contatos").SetColor(headerColor).SetSelectable(true)
 
 		var selectedNode *tview.TreeNode
-		for _, element := range ids {
+		makeNode := func(element messages.Chat) *tview.TreeNode {
 			raw := strings.TrimSuffix(strings.TrimSuffix(element.Id, messages.GROUPSUFFIX), messages.CONTACTSUFFIX)
 			label := element.Name
 			isNumber := false
@@ -957,21 +1050,43 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 				SetSelectable(true)
 			if element.IsGroup {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListGroup])
-				groupsNode.AddChild(node)
 			} else {
 				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
-				contactsNode.AddChild(node)
 			}
 			// store new currentReceiver, else the selection on the left goes off
 			if element.Id == oldId {
 				currentReceiver = element
 			}
-			if element.Id == currentReceiver.Id {
+			// prefer the first node created for the chat (the "Recentes" entry)
+			if selectedNode == nil && element.Id == currentReceiver.Id {
 				selectedNode = node
+			}
+			return node
+		}
+
+		// "Recentes": the 10 most recently active chats; ids already come sorted
+		// by most recent first, chats without activity have LastMessage == 0.
+		for _, element := range ids {
+			if len(recentsNode.GetChildren()) >= 10 {
+				break
+			}
+			if element.LastMessage == 0 {
+				continue
+			}
+			recentsNode.AddChild(makeNode(element))
+		}
+		for _, element := range ids {
+			if element.IsGroup {
+				groupsNode.AddChild(makeNode(element))
+			} else {
+				contactsNode.AddChild(makeNode(element))
 			}
 		}
 
 		// only show a category header if it actually has entries
+		if len(recentsNode.GetChildren()) > 0 {
+			chatRoot.AddChild(recentsNode)
+		}
 		if len(groupsNode.GetChildren()) > 0 {
 			chatRoot.AddChild(groupsNode)
 		}
@@ -992,8 +1107,11 @@ func (u UiHandler) PrintText(msg string) {
 	PrintText(msg)
 }
 
-func (u UiHandler) PrintFile(path string) {
+func (u UiHandler) PrintFile(path string, msgId string) {
 	go app.QueueUpdateDraw(func() {
+		if showInlineImage(path, msgId) {
+			return
+		}
 		PrintImage(path)
 	})
 }

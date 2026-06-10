@@ -29,6 +29,12 @@ type General struct {
 	UseTerminalBell     bool
 	NotificationTimeout int64
 	BacklogMsgQuantity  int
+	// InlineImages renders images directly inside the message panel (half-block
+	// art) on terminals with enough color support; on other terminals images
+	// stay as clickable lines that open in the system viewer.
+	InlineImages bool
+	// InlineImageLines is the maximum height (in terminal rows) of an inline image.
+	InlineImageLines int
 }
 
 type Keymap struct {
@@ -111,6 +117,8 @@ var Config = IniFile{
 		UseTerminalBell:     true,
 		NotificationTimeout: 60,
 		BacklogMsgQuantity:  10,
+		InlineImages:        true,
+		InlineImageLines:    14,
 	},
 	&Keymap{
 		SwitchPanels:    "Tab",

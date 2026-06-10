@@ -640,7 +640,7 @@ func (sm *SessionManager) downloadCommand(params []string, preview, show bool) {
 		return
 	}
 	if show {
-		sm.uiHandler.PrintFile(path)
+		sm.uiHandler.PrintFile(path, msg.Id)
 		return
 	}
 	if preview {

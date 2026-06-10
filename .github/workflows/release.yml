@@ -29,12 +29,12 @@ jobs:
             runs_on: ubuntu-latest
             goos: linux
             goarch: amd64
-            binary: whatscli
+            binary: zapterm
           - name: windows
             runs_on: windows-latest
             goos: windows
             goarch: amd64
-            binary: whatscli.exe
+            binary: ZapTerm.exe
 
     steps:
       - uses: actions/checkout@v5
@@ -54,14 +54,14 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           BINARY: ${{ matrix.binary }}
         run: |
-          mkdir -p dist
-          go build -o "dist/$BINARY" .
+          mkdir -p build
+          go build -trimpath -ldflags="-s -w" -o "build/$BINARY" .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}-asset
-          path: dist/${{ matrix.binary }}
+          path: build/${{ matrix.binary }}
 
   build-raspberrypi:
     name: Build raspberrypi
@@ -88,14 +88,14 @@ jobs:
           GOARCH: arm
           GOARM: "5"
         run: |
-          mkdir -p dist
-          go build -o dist/whatscli .
+          mkdir -p build
+          go build -trimpath -ldflags="-s -w" -o build/zapterm .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: raspberrypi-asset
-          path: dist/whatscli
+          path: build/zapterm
 
   release:
     name: Publish GitHub release
@@ -104,62 +104,59 @@ jobs:
       - build-native
       - build-raspberrypi
 
-    outputs:
-      version: ${{ steps.meta.outputs.version }}
-
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
-      - name: Resolve version
-        id: meta
-        run: |
-          echo "version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
-
       - name: Download artifacts
         uses: actions/download-artifact@v6
         with:
-          path: dist
+          path: artifacts
 
       - name: Install zip
         run: sudo apt-get update && sudo apt-get install -y zip
 
+      # Monta os mesmos pacotes do "make dist": binario + lancador +
+      # instalador de atalho + atualizador + LEIA-ME + icone.
       - name: Package assets
         run: |
-          mkdir -p release-assets
-          cp dist/linux-asset/whatscli release-assets/
-          chmod +x release-assets/whatscli
-          (
-            cd release-assets
-            zip "whatscli-${RELEASE_VERSION}-linux.zip" whatscli
-            rm whatscli
-          )
+          mkdir -p release-assets pkg
 
-          cp dist/windows-asset/whatscli.exe release-assets/
-          (
-            cd release-assets
-            zip "whatscli-${RELEASE_VERSION}-windows.zip" whatscli.exe
-            rm whatscli.exe
-          )
+          package_unix() { # package_unix <flavor> <binario-artifact>
+            local flavor="$1" bin="$2" dir="pkg/ZapTerm-$1"
+            mkdir -p "$dir"
+            cp "$bin" "$dir/zapterm"
+            cp packaging/linux/Abrir-ZapTerm.sh \
+               packaging/linux/Instalar-no-menu.sh \
+               packaging/linux/Atualizar-ZapTerm.sh \
+               packaging/linux/LEIA-ME.txt \
+               "$dir/"
+            cp assets/zapterm.png "$dir/"
+            chmod +x "$dir"/*.sh "$dir/zapterm"
+            (cd pkg && zip -qr "../release-assets/ZapTerm-${RELEASE_VERSION}-${flavor}.zip" "ZapTerm-$flavor")
+          }
 
-          cp dist/raspberrypi-asset/whatscli release-assets/whatscli
-          chmod +x release-assets/whatscli
-          (
-            cd release-assets
-            zip "whatscli-${RELEASE_VERSION}-raspberrypi.zip" whatscli
-            rm whatscli
-          )
+          package_unix linux artifacts/linux-asset/zapterm
+          package_unix raspberrypi artifacts/raspberrypi-asset/zapterm
+
+          mkdir -p pkg/ZapTerm-windows
+          cp artifacts/windows-asset/ZapTerm.exe pkg/ZapTerm-windows/
+          cp packaging/windows/Abrir-ZapTerm.bat \
+             packaging/windows/Instalar-no-menu-iniciar.bat \
+             packaging/windows/Atualizar-ZapTerm.bat \
+             packaging/windows/LEIA-ME.txt \
+             pkg/ZapTerm-windows/
+          cp assets/zapterm.ico pkg/ZapTerm-windows/
+          (cd pkg && zip -qr "../release-assets/ZapTerm-${RELEASE_VERSION}-windows.zip" ZapTerm-windows)
 
           ls -lah release-assets
 
       - name: Generate release notes
-        id: notes
         shell: bash
         run: |
-          version="${{ steps.meta.outputs.version }}"
-          current_tag="$version"
+          current_tag="${RELEASE_VERSION}"
           previous_tag="$(git tag --sort=-v:refname | grep -vx "$current_tag" | head -n1)"
           if [ -n "$previous_tag" ]; then
             git log "$previous_tag..HEAD" --no-decorate --pretty=format:'- %s' --abbrev-commit > changes.txt
@@ -167,110 +164,15 @@ jobs:
             git log --no-decorate --pretty=format:'- %s' --abbrev-commit > changes.txt
           fi
           if [ ! -s changes.txt ]; then
-            echo "- Release $version" > changes.txt
+            echo "- Release $current_tag" > changes.txt
           fi
 
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.version }}
-          name: ${{ steps.meta.outputs.version }}
+          tag_name: ${{ env.RELEASE_VERSION }}
+          name: ${{ env.RELEASE_VERSION }}
           body_path: changes.txt
           files: release-assets/*.zip
           draft: false
           prerelease: false
-
-  update-homebrew-tap:
-    name: Update homebrew tap
-    runs-on: ubuntu-latest
-    needs: release
-    if: github.event_name != 'pull_request'
-
-    steps:
-      - name: Checkout tap repo
-        uses: actions/checkout@v5
-        with:
-          repository: normen/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-tap
-
-      - name: Update formula
-        shell: bash
-        run: |
-          version="${{ needs.release.outputs.version }}"
-          url="https://github.com/normen/whatscli/archive/${version}.tar.gz"
-          curl -fsSL "$url" -o "${version}.tar.gz"
-          shasum="$(sha256sum "${version}.tar.gz" | awk '{print $1}')"
-          rm "${version}.tar.gz"
-
-          cd homebrew-tap
-          sed -i.bak "s/sha256 \".*/sha256 \"$shasum\"/" Formula/whatscli.rb
-          sed -i.bak "s!url \".*!url \"$url\"!" Formula/whatscli.rb
-          rm -f Formula/whatscli.rb.bak
-
-      - name: Commit and push
-        shell: bash
-        run: |
-          cd homebrew-tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/whatscli.rb
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "update whatscli to ${{ needs.release.outputs.version }}"
-          git push
-
-  publish-aur-whatscli:
-    name: Publish AUR whatscli
-    runs-on: ubuntu-latest
-    needs: release
-    if: github.event_name != 'pull_request'
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ env.RELEASE_REF }}
-          fetch-depth: 0
-
-      - name: Generate AUR packaging files
-        run: bash ./.github/scripts/generate-aur-pkgbuilds.sh "${{ needs.release.outputs.version }}"
-
-      - name: Publish whatscli to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
-        with:
-          pkgname: whatscli
-          pkgbuild: ./.github/aur/whatscli/PKGBUILD
-          assets: |
-            ./.github/aur/whatscli/.SRCINFO
-          commit_username: ${{ secrets.AUR_USERNAME }}
-          commit_email: ${{ secrets.AUR_EMAIL }}
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update whatscli to ${{ needs.release.outputs.version }}"
-
-  publish-aur-whatscli-git:
-    name: Publish AUR whatscli-git
-    runs-on: ubuntu-latest
-    needs: release
-    if: github.event_name != 'pull_request'
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ env.RELEASE_REF }}
-          fetch-depth: 0
-
-      - name: Generate AUR packaging files
-        run: bash ./.github/scripts/generate-aur-pkgbuilds.sh "${{ needs.release.outputs.version }}"
-
-      - name: Publish whatscli-git to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
-        with:
-          pkgname: whatscli-git
-          pkgbuild: ./.github/aur/whatscli-git/PKGBUILD
-          assets: |
-            ./.github/aur/whatscli-git/.SRCINFO
-          commit_username: ${{ secrets.AUR_USERNAME }}
-          commit_email: ${{ secrets.AUR_EMAIL }}
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update whatscli-git packaging"
