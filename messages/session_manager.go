@@ -186,8 +186,6 @@ func (sm *SessionManager) loginWithConnection(client *whatsmeow.Client) error {
 	}
 
 	sm.uiHandler.PrintText("Session restored successfully")
-	sm.StatusChannel <- StatusMsg{true, nil}
-	go sm.loadRecentChats()
 	return nil
 }
 
@@ -210,7 +208,6 @@ func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 		case "success":
 			sm.uiHandler.PrintText("Successfully logged in!")
 			sm.StatusChannel <- StatusMsg{true, nil}
-			go sm.loadRecentChats()
 			return nil
 		default:
 			sm.uiHandler.PrintText("QR event: " + evt.Event)
@@ -262,11 +259,15 @@ func (sm *SessionManager) loadRecentChats() {
 			})
 			addedChats++
 		}
+	} else {
+		sm.uiHandler.PrintText(fmt.Sprintf("Note: group sync pending (%v)", err))
 	}
 
 	sm.uiHandler.SetChats(sm.db.GetChatIds())
 	if addedChats > 0 {
 		sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d chats", addedChats))
+	} else {
+		sm.uiHandler.PrintText("Waiting for WhatsApp to sync chats...")
 	}
 }
 
@@ -973,8 +974,12 @@ func (eh *eventHandler) Handle(evt interface{}) {
 		eh.handleLiveMessage(v)
 	case *events.HistorySync:
 		eh.handleHistorySync(v)
+	case *events.OfflineSyncCompleted:
+		eh.sm.uiHandler.PrintText(fmt.Sprintf("Offline sync completed: %d items", v.Count))
+		eh.sm.loadRecentChats()
 	case *events.Connected:
 		eh.sm.StatusChannel <- StatusMsg{true, nil}
+		go eh.sm.loadRecentChats()
 	case *events.Disconnected:
 		eh.sm.StatusChannel <- StatusMsg{false, nil}
 	case *events.LoggedOut:
