@@ -261,17 +261,16 @@ func (md *MessageDatabase) GetChatIds() []Chat {
 func (md *MessageDatabase) GetMessages(chatID string) []Message {
 	md.messageLock.RLock()
 	msgs := md.messages[chatID]
-	md.messageLock.RUnlock()
-
-	sort.Slice(msgs, func(i, j int) bool {
-		if msgs[i].Timestamp == msgs[j].Timestamp {
-			return msgs[i].Id < msgs[j].Id
-		}
-		return msgs[i].Timestamp < msgs[j].Timestamp
-	})
-
 	out := make([]Message, len(msgs))
 	copy(out, msgs)
+	md.messageLock.RUnlock()
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Timestamp == out[j].Timestamp {
+			return out[i].Id < out[j].Id
+		}
+		return out[i].Timestamp < out[j].Timestamp
+	})
 	return out
 }
 
