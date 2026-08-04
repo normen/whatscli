@@ -60,12 +60,6 @@ func (md *MessageDatabase) AddMessage(msg Message, markUnread bool) bool {
 	msg.Unread = markUnread
 	md.messagesById[msg.Id] = msg
 	md.messages[msg.ChatId] = append(md.messages[msg.ChatId], msg)
-	sort.Slice(md.messages[msg.ChatId], func(i, j int) bool {
-		if md.messages[msg.ChatId][i].Timestamp == md.messages[msg.ChatId][j].Timestamp {
-			return md.messages[msg.ChatId][i].Id < md.messages[msg.ChatId][j].Id
-		}
-		return md.messages[msg.ChatId][i].Timestamp < md.messages[msg.ChatId][j].Timestamp
-	})
 	md.updateChatFromMessageLocked(msg, markUnread)
 	return true
 }
@@ -263,12 +257,19 @@ func (md *MessageDatabase) GetChatIds() []Chat {
 	return allChats
 }
 
-// GetMessages returns all messages for the given chat.
+// GetMessages returns all messages for the given chat, sorted by timestamp.
 func (md *MessageDatabase) GetMessages(chatID string) []Message {
 	md.messageLock.RLock()
-	defer md.messageLock.RUnlock()
-
 	msgs := md.messages[chatID]
+	md.messageLock.RUnlock()
+
+	sort.Slice(msgs, func(i, j int) bool {
+		if msgs[i].Timestamp == msgs[j].Timestamp {
+			return msgs[i].Id < msgs[j].Id
+		}
+		return msgs[i].Timestamp < msgs[j].Timestamp
+	})
+
 	out := make([]Message, len(msgs))
 	copy(out, msgs)
 	return out
@@ -290,7 +291,13 @@ func (md *MessageDatabase) GetOldestMessage(chatID string) (Message, bool) {
 	if len(msgs) == 0 {
 		return Message{}, false
 	}
-	return msgs[0], true
+	oldest := msgs[0]
+	for _, m := range msgs[1:] {
+		if m.Timestamp < oldest.Timestamp || (m.Timestamp == oldest.Timestamp && m.Id < oldest.Id) {
+			oldest = m
+		}
+	}
+	return oldest, true
 }
 
 // GetMessageInfo returns a human-readable description of a message.
