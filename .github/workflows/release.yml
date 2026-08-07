@@ -241,8 +241,6 @@ jobs:
         with:
           pkgname: whatscli
           pkgbuild: ./.github/aur/whatscli/PKGBUILD
-          assets: |
-            ./.github/aur/whatscli/.SRCINFO
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
@@ -268,8 +266,6 @@ jobs:
         with:
           pkgname: whatscli-git
           pkgbuild: ./.github/aur/whatscli-git/PKGBUILD
-          assets: |
-            ./.github/aur/whatscli-git/.SRCINFO
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
