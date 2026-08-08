@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"code.rocketnine.space/tslocum/cbind"
+	"codeberg.org/tslocum/cbind"
 	"github.com/gdamore/tcell/v2"
 	"github.com/normen/whatscli/config"
 	"github.com/normen/whatscli/messages"
